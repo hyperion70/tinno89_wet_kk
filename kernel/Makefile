@@ -350,7 +350,7 @@ KALLSYMS	= scripts/kallsyms
 PERL		= perl
 CHECK		= sparse
 
-OPTFLAGS	= -march=armv7-a -mtune=cortex-a7 -mfpu=neon-vfpv4 \
+OPTFLAGS	= -mcpu=cortex-a7 -mfpu=neon-vfpv4 \
 			-ffast-math -fsingle-precision-constant \
 			-fgcse-lm -fgcse-sm -fsched-spec-load -fforce-addr
 
@@ -378,7 +378,7 @@ KBUILD_CFLAGS   := -Wall -Wundef -Wstrict-prototypes -Wno-trigraphs \
 		   -Werror-implicit-function-declaration \
 		   -Wno-format-security \
 		   -fno-delete-null-pointer-checks \
-		   -mtune=cortex-a7 -mfpu=neon-vfpv4 -mfloat-abi=softfp
+		   -mcpu=cortex-a7 -mfpu=neon-vfpv4 -mfloat-abi=softfp
 KBUILD_AFLAGS_KERNEL :=
 KBUILD_CFLAGS_KERNEL :=
 KBUILD_AFLAGS   := -D__ASSEMBLY__
