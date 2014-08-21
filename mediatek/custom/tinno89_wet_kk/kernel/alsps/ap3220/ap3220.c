@@ -70,12 +70,12 @@ static void ps_startup_irq_func(struct work_struct *);
 * extern functions 
 *******************************************************************************/
 
-		extern void mt65xx_eint_unmask(unsigned int line);
-		extern void mt65xx_eint_mask(unsigned int line);
-		extern void mt65xx_eint_set_polarity(unsigned int eint_num, unsigned int pol);
-		extern void mt65xx_eint_set_hw_debounce(unsigned int eint_num, unsigned int ms);
-		extern unsigned int mt65xx_eint_set_sens(unsigned int eint_num, unsigned int sens);
-		extern void mt65xx_eint_registration(unsigned int eint_num, unsigned int is_deb_en, unsigned int pol, void (EINT_FUNC_PTR)(void), unsigned int is_auto_umask);
+		extern void mt_eint_unmask(unsigned int line);
+		extern void mt_eint_mask(unsigned int line);
+		extern void mt_eint_set_polarity(unsigned int eint_num, unsigned int pol);
+		extern void mt_eint_set_hw_debounce(unsigned int eint_num, unsigned int ms);
+		extern unsigned int mt_eint_set_sens(unsigned int eint_num, unsigned int sens);
+		extern void mt_eint_registration(unsigned int eint_num, unsigned int is_deb_en, unsigned int pol, void (EINT_FUNC_PTR)(void), unsigned int is_auto_umask);
 		extern void mt_eint_soft_set(unsigned int eint_num);
 		extern void mt_eint_soft_clr(unsigned int eint_num);
 
@@ -1076,10 +1076,10 @@ static void ap3220_eint_work(struct work_struct *work)
 		  goto EXIT_INTR_ERR;
 		}
 #endif
-	mt65xx_eint_unmask(CUST_EINT_ALS_NUM);
+	mt_eint_unmask(CUST_EINT_ALS_NUM);
 	return;
 	EXIT_INTR_ERR:
-	mt65xx_eint_unmask(CUST_EINT_ALS_NUM);
+	mt_eint_unmask(CUST_EINT_ALS_NUM);
 	APS_ERR("ap3220_eint_work err: %d\n", res);
 }
 /*----------------------------------------------------------------------------*/
@@ -1093,7 +1093,7 @@ static void ap3220_eint_func(void)
 //	APS_ERR("debug ap3220_eint_func!");
 //Ivan	
 	if (g_emu_int == 1)
-	    mt65xx_eint_mask(CUST_EINT_ALS_NUM);	
+	    mt_eint_mask(CUST_EINT_ALS_NUM);	
 	schedule_work(&obj->eint_work);
 }
 
@@ -1108,12 +1108,12 @@ int ap3220_setup_eint(struct i2c_client *client)
 	mt_set_gpio_pull_enable(GPIO_ALS_EINT_PIN, TRUE);
 	mt_set_gpio_pull_select(GPIO_ALS_EINT_PIN, GPIO_PULL_UP);
 
-	mt65xx_eint_set_sens(CUST_EINT_ALS_NUM, CUST_EINT_ALS_SENSITIVE);
-	mt65xx_eint_set_polarity(CUST_EINT_ALS_NUM, CUST_EINT_ALS_POLARITY);
-	mt65xx_eint_set_hw_debounce(CUST_EINT_ALS_NUM, CUST_EINT_ALS_DEBOUNCE_CN);
-	mt65xx_eint_registration(CUST_EINT_ALS_NUM, CUST_EINT_ALS_DEBOUNCE_EN, CUST_EINT_ALS_POLARITY, ap3220_eint_func, 0);
+	mt_eint_set_sens(CUST_EINT_ALS_NUM, CUST_EINT_ALS_SENSITIVE);
+	mt_eint_set_polarity(CUST_EINT_ALS_NUM, CUST_EINT_ALS_POLARITY);
+	mt_eint_set_hw_debounce(CUST_EINT_ALS_NUM, CUST_EINT_ALS_DEBOUNCE_CN);
+	mt_eint_registration(CUST_EINT_ALS_NUM, CUST_EINT_ALS_DEBOUNCE_EN, CUST_EINT_ALS_POLARITY, ap3220_eint_func, 0);
 
-	mt65xx_eint_unmask(CUST_EINT_ALS_NUM);  
+	mt_eint_unmask(CUST_EINT_ALS_NUM);  
     return 0;
 }
 /*-------------------------------MISC device related------------------------------------------*/

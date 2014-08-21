@@ -28,8 +28,8 @@ typedef struct{
 }VBAT_TO_PERCENT;
 
 /* Battery Temperature Protection */
-#define MAX_CHARGE_TEMPERATURE  50
-#define MIN_CHARGE_TEMPERATURE  0
+#define MAX_CHARGE_TEMPERATURE  60   //<LINE><20130111>wangyanhui
+#define MIN_CHARGE_TEMPERATURE  -17  //<LINE><20130111>wangyanhui
 #define ERR_CHARGE_TEMPERATURE  0xFF
 
 /* Recharging Battery Voltage */
@@ -63,7 +63,7 @@ VBAT_TO_PERCENT Batt_VoltToPercent_Table[] = {
 };
 
 /* Precise Tunning */
-#define BATTERY_AVERAGE_SIZE 	30
+#define BATTERY_AVERAGE_SIZE 	15  //30
 //#define BATTERY_AVERAGE_SIZE   3
 
 /* Common setting */
@@ -82,11 +82,11 @@ VBAT_TO_PERCENT Batt_VoltToPercent_Table[] = {
 #define RBAT_PULL_UP_VOLT          1800
 //#define TBAT_OVER_CRITICAL_LOW     68237
 //#define TBAT_OVER_CRITICAL_LOW     483954
-#define TBAT_OVER_CRITICAL_LOW 74354
+#define TBAT_OVER_CRITICAL_LOW     67790
 #define BAT_TEMP_PROTECT_ENABLE    1
-#define BAT_NTC_10 0
+#define BAT_NTC_10 1 //0  //<LINE><20130111>wangyanhui
 #define BAT_NTC_47 0
-#define BAT_NTC_BL197
+//#define BAT_NTC_CG103JF103F
 
 /* Battery Notify */
 #define BATTERY_NOTIFY_CASE_0001
