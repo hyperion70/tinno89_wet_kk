@@ -164,14 +164,10 @@ extern LCM_DRIVER it6151_edp_dsi_video_sharp_lcm_drv;
 extern LCM_DRIVER nt35517_qhd_dsi_vdo_lcm_drv;
 extern LCM_DRIVER r63311_fhd_dsi_vdo_malata_lcm_drv;
 
-extern LCM_DRIVER otm9605a_dsi_vdo_lg_lcm_drv;
-extern LCM_DRIVER nt35517_dsi_vdo_qhd_lcm_drv;
-extern LCM_DRIVER hx8389b_qhd_dsi_vdo_drv;
+extern LCM_DRIVER hx8394a_dsi_vdo_lcm_drv;		//line <add hx8394a> 2014 08 21
+extern LCM_DRIVER lg4591_dsi_vdo_lcm_drv;		//line <add lg4591_dsi> 2014 08 21
 
-extern LCM_DRIVER nt35590_hd720_dsi_vdo_s800_lcm_drv;
-extern LCM_DRIVER nt35590_hd720_dsi_vdo_s800_chuanma_lcm_drv;
-
-extern LCM_DRIVER otm9605a_qhd_dsi_vdo_u701b_ykl_lcm_drv;
+extern LCM_DRIVER otm9605a_qhd_dsi_vdo_u701b_ykl_lcm_drv;               
 LCM_DRIVER* lcm_driver_list[] = 
 { 
 
@@ -596,12 +592,12 @@ LCM_DRIVER* lcm_driver_list[] =
 	&nt35596_fhd_dsi_vdo_truly_lcm_drv,
 #endif
 
-#if defined(NT35595_FHD_DSI_VDO_TRULY)
-	&nt35595_fhd_dsi_vdo_truly_lcm_drv,
+#if defined(HX8394A_DSI_VDO)			//line <add hx8394a> 2014 08 21
+	&hx8394a_dsi_vdo_lcm_drv,
 #endif
 
-#if defined(R63319_WQHD_DSI_VDO_TRULY)
-	&r63319_wqhd_dsi_vdo_truly_lcm_drv,
+#if defined(LG4591_DSI_VDO)			//line <add lg4591_dsi> 2014 08 21
+	&lg4591_dsi_vdo_lcm_drv,
 #endif
 
 
@@ -784,7 +780,7 @@ static unsigned char lcd_id_pins_value = 0xFF;
 
 /******************************************************************************
 Function:       which_lcd_module_triple
-  Description:    read LCD ID PIN status,could identify three status:high¡¢low¡¢float
+  Description:    read LCD ID PIN status,could identify three status:highï¿½ï¿½lowï¿½ï¿½float
   Input:           none
   Output:         none
   Return:         LCD ID1|ID0 value

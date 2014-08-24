@@ -159,7 +159,7 @@ CUSTOM_KERNEL_SUB_IMGSENSOR= ov2659_yuv
 CUSTOM_KERNEL_SUB_LENS= dummy_lens
 
 # touch driver  need to report correct touch axes
-CUSTOM_KERNEL_TOUCHPANEL= ft5316_i90    # ft5x16
+CUSTOM_KERNEL_TOUCHPANEL= ft5x16
 
 # Configuration for USB PHY
 CUSTOM_KERNEL_USB= mt6577
