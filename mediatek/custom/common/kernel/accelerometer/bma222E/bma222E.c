@@ -58,7 +58,6 @@
 #define BMA222_DEV_NAME        "BMA222"
 /*----------------------------------------------------------------------------*/
 
-/*********/
 /*----------------------------------------------------------------------------*/
 static const struct i2c_device_id bma222_i2c_id[] = {{BMA222_DEV_NAME,0},{}};
 static struct i2c_board_info __initdata i2c_BMA222={ I2C_BOARD_INFO("BMA222", 0x18)};
@@ -71,10 +70,14 @@ static struct i2c_board_info __initdata i2c_BMA222={ I2C_BOARD_INFO("BMA222", 0x
 static int bma222_i2c_probe(struct i2c_client *client, const struct i2c_device_id *id); 
 static int bma222_i2c_remove(struct i2c_client *client);
 static int bma222_i2c_detect(struct i2c_client *client, struct i2c_board_info *info);
-#ifndef USE_EARLY_SUSPEND
+#ifndef CONFIG_HAS_EARLYSUSPEND
 static int bma222_suspend(struct i2c_client *client, pm_message_t msg);
 static int bma222_resume(struct i2c_client *client);
 #endif
+static int  bma222_local_init(void);
+static int  bma222_remove(void);
+
+static int bma222_init_flag =0; // 0<==>OK -1 <==> fail
 /*----------------------------------------------------------------------------*/
 typedef enum {
     ADX_TRC_FILTER  = 0x01,
@@ -102,6 +105,12 @@ struct data_filter {
     int num;
     int idx;
 };
+static struct sensor_init_info bma222_init_info = {
+		.name = "bma222",
+		.init = bma222_local_init,
+		.uninit = bma222_remove,
+	
+};
 /*----------------------------------------------------------------------------*/
 struct bma222_i2c_data {
     struct i2c_client *client;
@@ -126,38 +135,36 @@ struct bma222_i2c_data {
     struct data_filter      fir;
 #endif 
     /*early suspend*/
-#ifdef USE_EARLY_SUSPEND
+#ifdef CONFIG_HAS_EARLYSUSPEND
     struct early_suspend    early_drv;
 #endif     
 };
 /*----------------------------------------------------------------------------*/
 static struct i2c_driver bma222_i2c_driver = {
     .driver = {
-//        .owner          = THIS_MODULE,
+        .owner          = THIS_MODULE,
         .name           = BMA222_DEV_NAME,
     },
 	.probe      		= bma222_i2c_probe,
 	.remove    			= bma222_i2c_remove,
 	.detect				= bma222_i2c_detect,
-#if !defined(USE_EARLY_SUSPEND)    
+#if !defined(CONFIG_HAS_EARLYSUSPEND)    
     .suspend            = bma222_suspend,
     .resume             = bma222_resume,
 #endif
 	.id_table = bma222_i2c_id,
-//	.address_data = &bma222_addr_data,
+	//.address_data = &bma222_addr_data,
 };
 
 /*----------------------------------------------------------------------------*/
 static struct i2c_client *bma222_i2c_client = NULL;
-static struct platform_driver bma222_gsensor_driver;
+//static struct platform_driver bma222_gsensor_driver;
 static struct bma222_i2c_data *obj_i2c_data = NULL;
 static bool sensor_power = true;
 static int sensor_suspend = 0;
 static GSENSOR_VECTOR3D gsensor_gain;
 //static char selftestRes[8]= {0}; 
-static DEFINE_MUTEX(bma222_i2c_mutex);
-static DEFINE_MUTEX(bma222_op_mutex);
-
+static DEFINE_MUTEX(bma222_mutex);
 static bool enable_status = false;
 
 
@@ -177,85 +184,37 @@ static struct data_resolution bma222_offset_resolution = {{15, 6}, 64};
 /*----------------------------------------------------------------------------*/
 static int bma_i2c_read_block(struct i2c_client *client, u8 addr, u8 *data, u8 len)
 {
-    u8 beg = addr;
+        u8 beg = addr;
+	struct i2c_msg msgs[2] = {
+		{
+			.addr = client->addr,	.flags = 0,
+			.len = 1,	.buf = &beg
+		},
+		{
+			.addr = client->addr,	.flags = I2C_M_RD,
+			.len = len,	.buf = data,
+		}
+	};
 	int err;
-	struct i2c_msg msgs[2]={{0},{0}};
-	
-	mutex_lock(&bma222_i2c_mutex);
-	
-	msgs[0].addr = client->addr;
-	msgs[0].flags = 0;
-	msgs[0].len =1;
-	msgs[0].buf = &beg;
 
-	msgs[1].addr = client->addr;
-	msgs[1].flags = I2C_M_RD;
-	msgs[1].len =len;
-	msgs[1].buf = data;
-	
 	if (!client)
-	{
-	    mutex_unlock(&bma222_i2c_mutex);
 		return -EINVAL;
-	}
-	else if (len > C_I2C_FIFO_SIZE) 
-	{
+	else if (len > C_I2C_FIFO_SIZE) {
 		GSE_ERR(" length %d exceeds %d\n", len, C_I2C_FIFO_SIZE);
-		mutex_unlock(&bma222_i2c_mutex);
 		return -EINVAL;
 	}
+
 	err = i2c_transfer(client->adapter, msgs, sizeof(msgs)/sizeof(msgs[0]));
-	if (err != 2) 
-	{
-		GSE_ERR("i2c_transfer error: (%d %p %d) %d\n",addr, data, len, err);
+	if (err != 2) {
+		GSE_ERR("i2c_transfer error: (%d %p %d) %d\n",
+			addr, data, len, err);
 		err = -EIO;
-	} 
-	else 
-	{
+	} else {
 		err = 0;
 	}
-	mutex_unlock(&bma222_i2c_mutex);
 	return err;
 
 }
-
-static int bma_i2c_write_block(struct i2c_client *client, u8 addr, u8 *data, u8 len)
-{   /*because address also occupies one byte, the maximum length for write is 7 bytes*/
-    int err, idx, num;
-    char buf[C_I2C_FIFO_SIZE];
-    err =0;
-	mutex_lock(&bma222_i2c_mutex);
-    if (!client)
-    {
-        mutex_unlock(&bma222_i2c_mutex);
-        return -EINVAL;
-    }
-    else if (len >= C_I2C_FIFO_SIZE) 
-	{        
-        GSE_ERR(" length %d exceeds %d\n", len, C_I2C_FIFO_SIZE);
-		mutex_unlock(&bma222_i2c_mutex);
-        return -EINVAL;
-    }    
-
-    num = 0;
-    buf[num++] = addr;
-    for (idx = 0; idx < len; idx++)
-    {
-        buf[num++] = data[idx];
-    }
-
-    err = i2c_master_send(client, buf, num);
-    if (err < 0)
-	{
-        GSE_ERR("send command error!!\n");
-		mutex_unlock(&bma222_i2c_mutex);
-        return -EFAULT;
-    } 
-	mutex_unlock(&bma222_i2c_mutex);
-    return err;
-}
-
-
 /*----------------------------------------------------------------------------*/
 /*--------------------BMA222 power control function----------------------------------*/
 static void BMA222_power(struct acc_hw *hw, unsigned int on) 
@@ -576,11 +535,23 @@ static int BMA222_WriteCalibration(struct i2c_client *client, int dat[BMA222_AXE
 /*----------------------------------------------------------------------------*/
 static int BMA222_CheckDeviceID(struct i2c_client *client)
 {
-	u8 databuf[2]={0};    
+	u8 databuf[2];    
 	int res = 0;
+
+	memset(databuf, 0, sizeof(u8)*2);    
+	databuf[0] = BMA222_REG_DEVID;    
+
+	res = i2c_master_send(client, databuf, 0x1);
+	if(res <= 0)
+	{
+		goto exit_BMA222_CheckDeviceID;
+	}
 	
-	res = bma_i2c_read_block(client,BMA222_REG_DEVID,databuf,0x1);
-	if(res < 0)
+	udelay(200);
+
+	databuf[0] = 0x0;        
+	res = i2c_master_recv(client, databuf, 0x01);
+	if(res <= 0)
 	{
 		goto exit_BMA222_CheckDeviceID;
 	}
@@ -601,7 +572,7 @@ static int BMA222_CheckDeviceID(struct i2c_client *client)
 	#endif
 
 	exit_BMA222_CheckDeviceID:
-	if (res < 0)
+	if (res <= 0)
 	{
 		GSE_ERR("BMA222_CheckDeviceID %d failt!\n ", BMA222_ERR_I2C);
 		return BMA222_ERR_I2C;
@@ -640,9 +611,11 @@ static int BMA222_SetPowerMode(struct i2c_client *client, bool enable)
 	{
 		databuf[0] |= BMA222_MEASURE_MODE;
 	}
+	databuf[1] = databuf[0];
+	databuf[0] = BMA222_REG_POWER_CTL;
 	
-	res = bma_i2c_write_block(client,BMA222_REG_POWER_CTL,databuf,0x1);
-	if(res < 0)
+	res = i2c_master_send(client, databuf, 0x2);
+	if(res <= 0)
 	{
 		GSE_LOG("set power mode failed!\n");
 		return BMA222_ERR_I2C;
@@ -661,9 +634,11 @@ static int BMA222_SetPowerMode(struct i2c_client *client, bool enable)
 static int BMA222_SetDataFormat(struct i2c_client *client, u8 dataformat)
 {
 	struct bma222_i2c_data *obj = i2c_get_clientdata(client);
-	u8 databuf[10]={0};    
+	u8 databuf[10];    
 	int res = 0;
-   
+
+	memset(databuf, 0, sizeof(u8)*10);    
+
 	if(bma_i2c_read_block(client, BMA222_REG_DATA_FORMAT, databuf, 0x01))
 	{
 		printk("bma222 read Dataformat failt \n");
@@ -672,9 +647,11 @@ static int BMA222_SetDataFormat(struct i2c_client *client, u8 dataformat)
 	mdelay(1);
 	databuf[0] &= ~BMA222_RANGE_MASK;
 	databuf[0] |= dataformat;
-	
-	res = bma_i2c_write_block(client,BMA222_REG_DATA_FORMAT,databuf,0x1);
-	if(res < 0)
+	databuf[1] = databuf[0];
+	databuf[0] = BMA222_REG_DATA_FORMAT;
+
+	res = i2c_master_send(client, databuf, 0x2);
+	if(res <= 0)
 	{
 		return BMA222_ERR_I2C;
 	}
@@ -686,8 +663,10 @@ static int BMA222_SetDataFormat(struct i2c_client *client, u8 dataformat)
 /*----------------------------------------------------------------------------*/
 static int BMA222_SetBWRate(struct i2c_client *client, u8 bwrate)
 {
-	u8 databuf[10]={0};    
+	u8 databuf[10];    
 	int res = 0;
+
+	memset(databuf, 0, sizeof(u8)*10);    
 
 	if(bma_i2c_read_block(client, BMA222_REG_BW_RATE, databuf, 0x01))
 	{
@@ -697,10 +676,11 @@ static int BMA222_SetBWRate(struct i2c_client *client, u8 bwrate)
 	mdelay(1);
 	databuf[0] &= ~BMA222_BW_MASK;
 	databuf[0] |= bwrate;
-	
+	databuf[1] = databuf[0];
+	databuf[0] = BMA222_REG_BW_RATE;
 
-    res = bma_i2c_write_block(client,BMA222_REG_BW_RATE,databuf,0x1);
-	if(res < 0)
+	res = i2c_master_send(client, databuf, 0x2);
+	if(res <= 0)
 	{
 		return BMA222_ERR_I2C;
 	}
@@ -1179,7 +1159,7 @@ static ssize_t show_power_status_value(struct device_driver *ddri, char *buf)
 {
 	
 	u8 databuf[2];    
-	//int res = 0;
+	int res = 0;
 	u8 addr = BMA222_REG_POWER_CTL;
 	struct bma222_i2c_data *obj = obj_i2c_data;
 	if(bma_i2c_read_block(obj->client, addr, databuf, 0x01))
@@ -1256,7 +1236,7 @@ static int bma222_delete_attr(struct device_driver *driver)
 }
 
 /*----------------------------------------------------------------------------*/
-int gsensor_operate(void* self, uint32_t command, void* buff_in, int size_in,
+int bma222_operate(void* self, uint32_t command, void* buff_in, int size_in,
 		void* buff_out, int size_out, int* actualout)
 {
 	int err = 0;
@@ -1289,13 +1269,13 @@ int gsensor_operate(void* self, uint32_t command, void* buff_in, int size_in,
 				{
 					sample_delay = BMA222_BW_50HZ;
 				}
-				mutex_lock(&bma222_op_mutex);
+				mutex_lock(&bma222_mutex);
 				err = BMA222_SetBWRate(priv->client, sample_delay);
 				if(err != BMA222_SUCCESS ) //0x2C->BW=100Hz
 				{
 					GSE_ERR("Set delay parameter error!\n");
 				}
-				mutex_unlock(&bma222_op_mutex);
+				mutex_unlock(&bma222_mutex);
 				if(value >= 50)
 				{
 					atomic_set(&priv->filter, 0);
@@ -1323,7 +1303,7 @@ int gsensor_operate(void* self, uint32_t command, void* buff_in, int size_in,
 			else
 			{
 				value = *(int *)buff_in;
-				mutex_lock(&bma222_op_mutex);
+				mutex_lock(&bma222_mutex);
 				GSE_LOG("Gsensor device enable function enable = %d, sensor_power = %d!\n",value,sensor_power);
 				if(((value == 0) && (sensor_power == false)) ||((value == 1) && (sensor_power == true)))
 				{
@@ -1332,12 +1312,17 @@ int gsensor_operate(void* self, uint32_t command, void* buff_in, int size_in,
 				}
 				else
 				{
+					if(sensor_suspend == 0){
 					enable_status = !sensor_power;
 					err = BMA222_SetPowerMode( priv->client, !sensor_power);
 					GSE_LOG("Gsensor not in suspend BMA222_SetPowerMode!, enable_status = %d\n",enable_status);
+					}else{
+					enable_status = !sensor_power;
+					GSE_LOG("Gsensor in suspend and can not enable or disable!enable_status = %d\n",enable_status);
+					}
 					
 				}
-				mutex_unlock(&bma222_op_mutex);
+				mutex_unlock(&bma222_mutex);
 			}
 			break;
 
@@ -1563,39 +1548,36 @@ static struct miscdevice bma222_device = {
 	.fops = &bma222_fops,
 };
 /*----------------------------------------------------------------------------*/
-#ifndef USE_EARLY_SUSPEND
+#ifndef CONFIG_HAS_EARLYSUSPEND
 /*----------------------------------------------------------------------------*/
 static int bma222_suspend(struct i2c_client *client, pm_message_t msg) 
 {
 	struct bma222_i2c_data *obj = i2c_get_clientdata(client);    
 	int err = 0;
 	GSE_FUN();    
-    mutex_lock(&bma222_op_mutex);
+
 	if(msg.event == PM_EVENT_SUSPEND)
 	{   
 		if(obj == NULL)
 		{
 			GSE_ERR("null pointer!!\n");
-			mutex_unlock(&bma222_op_mutex);
 			return -EINVAL;
 		}
 		atomic_set(&obj->suspend, 1);
-		if((err = BMA222_SetPowerMode(obj->client, false)))
+		if(err = BMA222_SetPowerMode(obj->client, false))
 		{
 			GSE_ERR("write power control fail!!\n");
-			mutex_unlock(&bma222_op_mutex);
-			return -EINVAL;
+			return;
 		}       
 		BMA222_power(obj->hw, 0);
 	}
-	mutex_unlock(&bma222_op_mutex);
 	return err;
 }
 /*----------------------------------------------------------------------------*/
 static int bma222_resume(struct i2c_client *client)
 {
 	struct bma222_i2c_data *obj = i2c_get_clientdata(client);        
-	int err;
+	//int err;
 	GSE_FUN();
 
 	if(obj == NULL)
@@ -1603,17 +1585,17 @@ static int bma222_resume(struct i2c_client *client)
 		GSE_ERR("null pointer!!\n");
 		return -EINVAL;
 	}
-	mutex_lock(&bma222_op_mutex);
-	BMA222_power(obj->hw, 1);
 
-	if((err = bma222_init_client(client, 0)))
+	BMA222_power(obj->hw, 1);
+#if 0 //ALPS00400022 sensor not work issue
+	if(err = bma222_init_client(client, 0))
 	{
 		GSE_ERR("initialize client fail!!\n");
-		mutex_unlock(&bma222_op_mutex);
 		return err;        
 	}
+#endif
 	atomic_set(&obj->suspend, 0);
-    mutex_unlock(&bma222_op_mutex);
+
 	return 0;
 }
 /*----------------------------------------------------------------------------*/
@@ -1630,13 +1612,13 @@ static void bma222_early_suspend(struct early_suspend *h)
 		return;
 	}
 	atomic_set(&obj->suspend, 1); 
-	mutex_lock(&bma222_op_mutex);
+	mutex_lock(&bma222_mutex);
 	GSE_FUN();  
 	u8 databuf[2]; //for debug read power control register to see the value is OK
 	if(bma_i2c_read_block(obj->client, BMA222_REG_POWER_CTL, databuf, 0x01))
 	{
 		GSE_ERR("read power ctl register err!\n");
-		mutex_unlock(&bma222_op_mutex);
+		mutex_unlock(&bma222_mutex);
 		return BMA222_ERR_I2C;
 	}
 	if(databuf[0]==0xff)//if the value is ff the gsensor will not work anymore, any i2c operations won't be vaild
@@ -1644,19 +1626,19 @@ static void bma222_early_suspend(struct early_suspend *h)
 	if((err = BMA222_SetPowerMode(obj->client, false)))
 	{
 		GSE_ERR("write power control fail!!\n");
-		mutex_unlock(&bma222_op_mutex);
+		mutex_unlock(&bma222_mutex);
 		return;
 	}
 	if(bma_i2c_read_block(obj->client, BMA222_REG_POWER_CTL, databuf, 0x01)) //for debug read power control register to see the value is OK
 	{
 		GSE_ERR("read power ctl register err!\n");
-		mutex_unlock(&bma222_op_mutex);
+		mutex_unlock(&bma222_mutex);
 		return BMA222_ERR_I2C;
 	}
 	if(databuf[0]==0xff)//if the value is ff the gsensor will not work anymore, any i2c operations won't be vaild
 		GSE_LOG("after BMA222_SetPowerMode suspend err databuf = 0x%x\n",databuf[0]);
 	sensor_suspend = 1;
-	mutex_unlock(&bma222_op_mutex);
+	mutex_unlock(&bma222_mutex);
 	BMA222_power(obj->hw, 0);
 }
 /*----------------------------------------------------------------------------*/
@@ -1672,13 +1654,13 @@ static void bma222_late_resume(struct early_suspend *h)
 	}
 
 	BMA222_power(obj->hw, 1);
-	mutex_lock(&bma222_op_mutex);
+	mutex_lock(&bma222_mutex);
 	GSE_FUN();
 	u8 databuf[2];//for debug read power control register to see the value is OK
 	if(bma_i2c_read_block(obj->client, BMA222_REG_POWER_CTL, databuf, 0x01))
 	{
 		GSE_ERR("read power ctl register err!\n");
-		mutex_unlock(&bma222_op_mutex);
+		mutex_unlock(&bma222_mutex);
 		return BMA222_ERR_I2C;
 	}
 	if(databuf[0]==0xff)//if the value is ff the gsensor will not work anymore, any i2c operations won't be vaild
@@ -1686,24 +1668,24 @@ static void bma222_late_resume(struct early_suspend *h)
 	if((err = bma222_init_client(obj->client, 0)))
 	{
 		GSE_ERR("initialize client fail!!\n");
-		mutex_unlock(&bma222_op_mutex);
+		mutex_unlock(&bma222_mutex);
 		return;        
 	}
 	
 	if(bma_i2c_read_block(obj->client, BMA222_REG_POWER_CTL, databuf, 0x01)) //for debug read power control register to see the value is OK
 	{
 		GSE_ERR("read power ctl register err!\n");
-		mutex_unlock(&bma222_op_mutex);
+		mutex_unlock(&bma222_mutex);
 		return BMA222_ERR_I2C;
 	}
 	if(databuf[0]==0xff)//if the value is ff the gsensor will not work anymore, any i2c operations won't be vaild
 		GSE_LOG("after bma222_init_client databuf = 0x%x\n",databuf[0]);
 	sensor_suspend = 0;
-	mutex_unlock(&bma222_op_mutex);
+	mutex_unlock(&bma222_mutex);
 	atomic_set(&obj->suspend, 0);    
 }
 /*----------------------------------------------------------------------------*/
-#endif /*USE_EARLY_SUSPEND*/
+#endif /*CONFIG_HAS_EARLYSUSPEND*/
 /*----------------------------------------------------------------------------*/
 static int bma222_i2c_detect(struct i2c_client *client, struct i2c_board_info *info) 
 {    
@@ -1718,7 +1700,6 @@ static int bma222_i2c_probe(struct i2c_client *client, const struct i2c_device_i
 	struct bma222_i2c_data *obj;
 	struct hwmsen_object sobj;
 	int err = 0;
-	int retry = 0;
 	GSE_FUN();
 
 	if(!(obj = kzalloc(sizeof(*obj), GFP_KERNEL)))
@@ -1729,7 +1710,7 @@ static int bma222_i2c_probe(struct i2c_client *client, const struct i2c_device_i
 	
 	memset(obj, 0, sizeof(struct bma222_i2c_data));
 
-	obj->hw = get_cust_acc_hw();
+	obj->hw = bma222_get_cust_acc_hw();
 	
 	if((err = hwmsen_get_convert(obj->hw->direction, &obj->cvt)))
 	{
@@ -1764,15 +1745,10 @@ static int bma222_i2c_probe(struct i2c_client *client, const struct i2c_device_i
 
 	bma222_i2c_client = new_client;	
 
-	for(retry = 0; retry < 3; retry++){
-		if((err = bma222_init_client(new_client, 1)))
-		{
-			GSE_ERR("bma222_device init cilent fail time: %d\n", retry);
-			continue;
-		}
-	}
-	if(err != 0)
+	if((err = bma222_init_client(new_client, 1)))
+	{
 		goto exit_init_failed;
+	}
 	
 
 	if((err = misc_register(&bma222_device)))
@@ -1781,7 +1757,7 @@ static int bma222_i2c_probe(struct i2c_client *client, const struct i2c_device_i
 		goto exit_misc_device_register_failed;
 	}
 
-	if((err = bma222_create_attr(&bma222_gsensor_driver.driver)))
+	if((err = bma222_create_attr(&(bma222_init_info.platform_diver_addr->driver))))
 	{
 		GSE_ERR("create attribute err = %d\n", err);
 		goto exit_create_attr_failed;
@@ -1789,14 +1765,14 @@ static int bma222_i2c_probe(struct i2c_client *client, const struct i2c_device_i
 
 	sobj.self = obj;
     sobj.polling = 1;
-    sobj.sensor_operate = gsensor_operate;
+    sobj.sensor_operate = bma222_operate;
 	if((err = hwmsen_attach(ID_ACCELEROMETER, &sobj)))
 	{
 		GSE_ERR("attach fail = %d\n", err);
 		goto exit_kfree;
 	}
 
-#ifdef USE_EARLY_SUSPEND
+#ifdef CONFIG_HAS_EARLYSUSPEND
 	obj->early_drv.level    = EARLY_SUSPEND_LEVEL_STOP_DRAWING - 2,
 	obj->early_drv.suspend  = bma222_early_suspend,
 	obj->early_drv.resume   = bma222_late_resume,    
@@ -1804,6 +1780,7 @@ static int bma222_i2c_probe(struct i2c_client *client, const struct i2c_device_i
 #endif 
 
 	GSE_LOG("%s: OK\n", __func__);    
+	bma222_init_flag =0;
 	return 0;
 
 	exit_create_attr_failed:
@@ -1815,6 +1792,7 @@ static int bma222_i2c_probe(struct i2c_client *client, const struct i2c_device_i
 	kfree(obj);
 	exit:
 	GSE_ERR("%s: err = %d\n", __func__, err);        
+	bma222_init_flag =-1;
 	return err;
 }
 
@@ -1823,7 +1801,7 @@ static int bma222_i2c_remove(struct i2c_client *client)
 {
 	int err = 0;	
 	
-	if((err = bma222_delete_attr(&bma222_gsensor_driver.driver)))
+	if((err = bma222_delete_attr(&(bma222_init_info.platform_diver_addr->driver))))
 	{
 		GSE_ERR("bma150_delete_attr fail: %d\n", err);
 	}
@@ -1842,6 +1820,43 @@ static int bma222_i2c_remove(struct i2c_client *client)
 	return 0;
 }
 /*----------------------------------------------------------------------------*/
+#if 1
+
+/*----------------------------------------------------------------------------*/
+static int bma222_remove(void)
+{
+    struct acc_hw *hw = bma222_get_cust_acc_hw();
+
+    GSE_FUN();    
+    BMA222_power(hw, 0);    
+    i2c_del_driver(&bma222_i2c_driver);
+    return 0;
+}
+/*----------------------------------------------------------------------------*/
+
+/*----------------------------------------------------------------------------*/
+
+static int  bma222_local_init(void)
+{
+   struct acc_hw *hw = bma222_get_cust_acc_hw();
+	GSE_FUN();
+
+	BMA222_power(hw, 1);
+	//bma222E_force[0] = hw->i2c_num;
+	if(i2c_add_driver(&bma222_i2c_driver))
+	{
+		GSE_ERR("add driver error\n");
+		return -1;
+	}
+	if(-1 == bma222_init_flag)
+	{
+	   return -1;
+	}
+	
+	return 0;
+}
+
+#else
 static int bma222_probe(struct platform_device *pdev) 
 {
 	struct acc_hw *hw = get_cust_acc_hw();
@@ -1875,26 +1890,27 @@ static struct platform_driver bma222_gsensor_driver = {
 		.owner = THIS_MODULE,
 	}
 };
-
+#endif
 /*----------------------------------------------------------------------------*/
 static int __init bma222_init(void)
 {
 	//GSE_FUN();
-	struct acc_hw *hw = get_cust_acc_hw();
+	struct acc_hw *hw = bma222_get_cust_acc_hw();
 	GSE_LOG("%s: i2c_number=%d\n", __func__,hw->i2c_num);
 	i2c_register_board_info(hw->i2c_num, &i2c_BMA222, 1);
-	if(platform_driver_register(&bma222_gsensor_driver))
+	hwmsen_gsensor_add(&bma222_init_info);
+	/*if(platform_driver_register(&bma222_gsensor_driver))
 	{
 		GSE_ERR("failed to register driver");
 		return -ENODEV;
-	}
+	}*/
 	return 0;    
 }
 /*----------------------------------------------------------------------------*/
 static void __exit bma222_exit(void)
 {
 	GSE_FUN();
-	platform_driver_unregister(&bma222_gsensor_driver);
+	//platform_driver_unregister(&bma222_gsensor_driver);
 }
 /*----------------------------------------------------------------------------*/
 module_init(bma222_init);

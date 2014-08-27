@@ -32,45 +32,33 @@
  * have been modified by MediaTek Inc. All revisions are subject to any receiver's
  * applicable license agreements with MediaTek Inc.
  */
+#include <linux/types.h>
 
-#ifndef _OV8825TRULYAF_H
-#define _OV8825TRULYAF_H
+#include <cust_acc.h>
 
-#include <linux/ioctl.h>
-//#include "kd_imgsensor.h"
+#include <mach/mt_pm_ldo.h>
 
-#define OV8825TRULYAF_MAGIC 'A'
-//IOCTRL(inode * ,file * ,cmd ,arg )
-
-
-//Structures
-typedef struct {
-//current position
-unsigned long u4CurrentPosition;
-//macro position
-unsigned long u4MacroPosition;
-//Infiniti position
-unsigned long u4InfPosition;
-//Motor Status
-bool          bIsMotorMoving;
-//Motor Open?
-bool          bIsMotorOpen;
-} stOV8825TRULYAF_MotorInfo;
-
-//Control commnad
-//S means "set through a ptr"
-//T means "tell by a arg value"
-//G means "get by a ptr"             
-//Q means "get by return a value"
-//X means "switch G and S atomically"
-//H means "switch T and Q atomically"
-#define OV8825TRULYAFIOC_G_MOTORINFO _IOR(OV8825TRULYAF_MAGIC,0,stOV8825TRULYAF_MotorInfo)
-
-#define OV8825TRULYAFIOC_T_MOVETO _IOW(OV8825TRULYAF_MAGIC,1,unsigned long)
-
-#define OV8825TRULYAFIOC_T_SETINFPOS _IOW(OV8825TRULYAF_MAGIC,2,unsigned long)
-
-#define OV8825TRULYAFIOC_T_SETMACROPOS _IOW(OV8825TRULYAF_MAGIC,3,unsigned long)
-
-#else
-#endif
+/*---------------------------------------------------------------------------*/
+int bma222_cust_acc_power(struct acc_hw *hw, unsigned int on, char* devname)
+{
+    if (hw->power_id == MT65XX_POWER_NONE)
+        return 0;
+    if (on)
+        return hwPowerOn(hw->power_id, hw->power_vol, devname);
+    else
+        return hwPowerDown(hw->power_id, devname); 
+}
+/*---------------------------------------------------------------------------*/
+static struct acc_hw bma222_cust_acc_hw = {
+    .i2c_num = 3,
+    .direction = 4,
+    .power_id = MT65XX_POWER_NONE,  /*!< LDO is not used */
+    .power_vol= VOL_DEFAULT,        /*!< LDO is not used */
+    .firlen = 16,                   /*!< don't enable low pass fileter */
+    .power = bma222_cust_acc_power,        
+};
+/*---------------------------------------------------------------------------*/
+struct acc_hw* bma222_get_cust_acc_hw(void) 
+{
+    return &bma222_cust_acc_hw;
+}

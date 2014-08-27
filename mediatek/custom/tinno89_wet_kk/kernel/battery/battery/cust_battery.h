@@ -28,8 +28,8 @@ typedef struct{
 }VBAT_TO_PERCENT;
 
 /* Battery Temperature Protection */
-#define MAX_CHARGE_TEMPERATURE  60   //<LINE><20130111>wangyanhui
-#define MIN_CHARGE_TEMPERATURE  -17  //<LINE><20130111>wangyanhui
+#define MAX_CHARGE_TEMPERATURE  50
+#define MIN_CHARGE_TEMPERATURE  0
 #define ERR_CHARGE_TEMPERATURE  0xFF
 
 /* Recharging Battery Voltage */
@@ -63,11 +63,15 @@ VBAT_TO_PERCENT Batt_VoltToPercent_Table[] = {
 };
 
 /* Precise Tunning */
-#define BATTERY_AVERAGE_SIZE 	15  //30
+#define BATTERY_AVERAGE_SIZE 	30
 //#define BATTERY_AVERAGE_SIZE   3
 
 /* Common setting */
+#if defined(DCT_V936) || defined(DCT_K7T) || defined(DCT_K7W)
+#define R_CURRENT_SENSE 1				// 0.1 Ohm
+#else
 #define R_CURRENT_SENSE 2				// 0.2 Ohm
+#endif
 #define R_BAT_SENSE 4					// times of voltage
 #define R_I_SENSE 4						// times of voltage
 #define R_CHARGER_1 330
@@ -84,13 +88,19 @@ VBAT_TO_PERCENT Batt_VoltToPercent_Table[] = {
 //#define TBAT_OVER_CRITICAL_LOW     483954
 #define TBAT_OVER_CRITICAL_LOW     67790
 #define BAT_TEMP_PROTECT_ENABLE    1
-#define BAT_NTC_10 1 //0  //<LINE><20130111>wangyanhui
+
+#ifndef MTK_FAN5405_SUPPORT
+#define BAT_NTC_10 1
+#endif
 #define BAT_NTC_47 0
-//#define BAT_NTC_CG103JF103F
+#define BAT_NTC_CG103JF103F
 
 /* Battery Notify */
 #define BATTERY_NOTIFY_CASE_0001
+#if (defined(K29W_K2L3))
+#else
 #define BATTERY_NOTIFY_CASE_0002
+#endif
 //#define BATTERY_NOTIFY_CASE_0003
 //#define BATTERY_NOTIFY_CASE_0004
 //#define BATTERY_NOTIFY_CASE_0005

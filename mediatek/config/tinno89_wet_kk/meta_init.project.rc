@@ -10,13 +10,14 @@ on post-fs
 
 # STP, WMT, GPS, FM and BT Driver
     insmod /system/lib/modules/mtk_wmt_detect.ko
-#    insmod /system/lib/modules/mtk_hif_sdio.ko
-#    insmod /system/lib/modules/mtk_stp_wmt.ko
-#    insmod /system/lib/modules/mtk_stp_uart.ko
-#    insmod /system/lib/modules/mtk_stp_gps.ko
-#    insmod /system/lib/modules/mtk_stp_bt.ko
-#    insmod /system/lib/modules/mtk_fm_drv.ko
-#    insmod /system/lib/modules/mtk_wmt_wifi.ko
+    #insmod /system/lib/modules/mtk_hif_sdio.ko
+    #insmod /system/lib/modules/mtk_stp_wmt.ko
+    #insmod /system/lib/modules/mtk_stp_uart.ko
+    #insmod /system/lib/modules/mtk_stp_gps.ko
+    #insmod /system/lib/modules/mtk_stp_bt.ko
+    #insmod /system/lib/modules/mtk_fm_drv.ko
+    #insmod /system/lib/modules/mtk_fm_priv.ko
+    #insmod /system/lib/modules/mtk_wmt_wifi.ko
 
 # Create char device file for WMT, GPS, BT, FM, WIFI
     mknod /dev/stpwmt c 190 0;
@@ -29,6 +30,10 @@ on post-fs
     mknod /dev/wmtWifi c 153 0
     chmod 0660 /dev/wmtWifi
     chown system system /dev/wmtWifi
+
+#Camera
+    chmod 0660 /dev/OV8825AF
+    chown system camera /dev/OV8825AF
 
 # BT
     chmod 0660 /dev/stpbt
@@ -46,6 +51,7 @@ on post-fs
 # WiFi
     mkdir /data/misc/wifi 0770 wifi wifi
     mkdir /data/misc/wifi/sockets 0770 wifi wifi
+    chmod 777 /data/misc/wifi/sockets
     mkdir /data/misc/wpa_supplicant 0770 wifi wifi
     chown wifi wifi /data/misc/wifi
 
@@ -72,11 +78,12 @@ on boot
 #
 # Connectivity related services (Begin)
 #
+
 service wmt_loader  /system/bin/logwrapper /system/bin/wmt_loader
     user root
     group root
     oneshot
-
+    
 service 662x_launcher /system/bin/logwrapper /system/bin/6620_launcher -b 4000000 -p /system/etc/firmware/ -d /dev/ttyMT2
     user system
     group system

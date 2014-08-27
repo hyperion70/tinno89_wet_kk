@@ -55,7 +55,7 @@ CUSTOM_HAL_FLASHLIGHT=constant_flashlight
 CUSTOM_HAL_IMGSENSOR=ov8825_mipi_raw ov2659_yuv ov8825_truly_mipi_raw hi253_yuv ov8826_mipi_raw
 
 # = CUSTOM_HAL_MAIN_LENS +CUSTOM_HAL_MAIN_BACKUP_LENS + CUSTOM_HAL_SUB_LENS + CUSTOM_HAL_SUB_BACKUP_LENS
-CUSTOM_HAL_LENS= ov8825af dummy_lens ov8826af  # ov8825trulyaf
+CUSTOM_HAL_LENS= ov8825af dummy_lens ov8826af ov8825trulyaf
 CUSTOM_HAL_MAIN2_IMGSENSOR=
 CUSTOM_HAL_MAIN_BACKUP_IMGSENSOR= ov8825_truly_mipi_raw
 
@@ -125,7 +125,7 @@ CUSTOM_KERNEL_KPD= kpd
 CUSTOM_KERNEL_LEDS= mt65xx
 
 # same as CUSTOM_HAL_LENS
-CUSTOM_KERNEL_LENS= ov8825af dummy_lens ov8826af # ov8825trulyaf
+CUSTOM_KERNEL_LENS= ov8825af dummy_lens ov8825trulyaf ov8826af
 CUSTOM_KERNEL_MAIN2_BACKUP_IMGSENSOR=
 CUSTOM_KERNEL_MAIN2_IMGSENSOR=
 
@@ -323,10 +323,10 @@ MTK_AUTORAMA_SUPPORT=yes
 
 # one load to support different accelerometer sensor
 MTK_AUTO_DETECT_ACCELEROMETER=yes
-MTK_AUTO_DETECT_ALSPS=yes
+MTK_AUTO_DETECT_ALSPS=no
 
 # one load to support different magnetometer sensor
-MTK_AUTO_DETECT_MAGNETOMETER=yes
+MTK_AUTO_DETECT_MAGNETOMETER=no
 
 # This feature enables basic configuration checks after bootup. If the configuration is incorrect, an AEE exception is thrown.
 MTK_AUTO_SANITY=yes
@@ -685,7 +685,7 @@ MTK_FACTORY_MODE_IN_GB2312=yes
 MTK_FAN5402_SUPPORT=no
 
 # use external charger IC, MTK support
-MTK_FAN5405_SUPPORT=no
+MTK_FAN5405_SUPPORT=yes
 MTK_FASTBOOT_SUPPORT=no
 
 # For NAND phone such as in EMMC phone with internal sd card, FAT on NAND feature was cut from NAND to be a independent fat partition,and create FAT image file over /fat yaffs2 file system, then let NAND phone can support FAT file system in internal.

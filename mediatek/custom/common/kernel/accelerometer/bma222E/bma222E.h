@@ -23,6 +23,7 @@
 #define BMA150_H
 	 
 #include <linux/ioctl.h>
+  extern struct acc_hw* bma222_get_cust_acc_hw(void) ;
 	 
 	#define BMA222_I2C_SLAVE_WRITE_ADDR		0x10
 	 
