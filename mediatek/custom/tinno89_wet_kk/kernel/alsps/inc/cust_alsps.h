@@ -4,13 +4,10 @@
 #define C_CUST_ALS_LEVEL    16
 #define C_CUST_I2C_ADDR_NUM 4
 
-#define MAX_THRESHOLD_HIGH 0xffff
-#define MIN_THRESHOLD_LOW 0x0
-
 struct alsps_hw {
     int i2c_num;                                    /*!< the i2c bus used by ALS/PS */
-    int power_id;                                   /*!< the VDD power id of the als chip */
-    int power_vol;                                  /*!< the VDD power voltage of the als chip */
+    int power_id;                                   /*!< the power id of the chip */
+    int power_vol;                                  /*!< the power voltage of the chip */
 	int polling_mode;                               /*!< 1: polling mode ; 0:interrupt mode*/
 	int polling_mode_ps;                               /*!< 1: polling mode ; 0:interrupt mode*/
 	int polling_mode_als;                               /*!< 1: polling mode ; 0:interrupt mode*/
@@ -23,16 +20,7 @@ struct alsps_hw {
 	unsigned int    ps_threshold_low;
 	unsigned int    als_threshold_high;
 	unsigned int    als_threshold_low;
-    int als_power_vio_id;                                   /*!< the VIO power id of the als chip */
-    int als_power_vio_vol;                                  /*!< the VIO power voltage of the als chip */
-    int ps_power_vdd_id;                                   /*!< the VDD power id of the ps chip */
-    int ps_power_vdd_vol;                                  /*!< the VDD power voltage of the ps chip */
-    int ps_power_vio_id;                                   /*!< the VIO power id of the ps chip */
-    int ps_power_vio_vol;                                  /*!< the VIO power voltage of the ps chip */
-    int power_lp_mode_ctrl;                                 /*!< 1: disable ldo low power mode when p sensor enabled ; 0: no action*/
 };
 
 extern struct alsps_hw* get_cust_alsps_hw(void);
-
-__weak int pmic_ldo_suspend_enable(int enable);
 #endif
