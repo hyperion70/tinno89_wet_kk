@@ -1,38 +1,3 @@
-/* Copyright Statement:
- *
- * This software/firmware and related documentation ("MediaTek Software") are
- * protected under relevant copyright laws. The information contained herein
- * is confidential and proprietary to MediaTek Inc. and/or its licensors.
- * Without the prior written permission of MediaTek inc. and/or its licensors,
- * any reproduction, modification, use or disclosure of MediaTek Software,
- * and information contained herein, in whole or in part, shall be strictly prohibited.
- */
-/* MediaTek Inc. (C) 2010. All rights reserved.
- *
- * BY OPENING THIS FILE, RECEIVER HEREBY UNEQUIVOCALLY ACKNOWLEDGES AND AGREES
- * THAT THE SOFTWARE/FIRMWARE AND ITS DOCUMENTATIONS ("MEDIATEK SOFTWARE")
- * RECEIVED FROM MEDIATEK AND/OR ITS REPRESENTATIVES ARE PROVIDED TO RECEIVER ON
- * AN "AS-IS" BASIS ONLY. MEDIATEK EXPRESSLY DISCLAIMS ANY AND ALL WARRANTIES,
- * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE IMPLIED WARRANTIES OF
- * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE OR NONINFRINGEMENT.
- * NEITHER DOES MEDIATEK PROVIDE ANY WARRANTY WHATSOEVER WITH RESPECT TO THE
- * SOFTWARE OF ANY THIRD PARTY WHICH MAY BE USED BY, INCORPORATED IN, OR
- * SUPPLIED WITH THE MEDIATEK SOFTWARE, AND RECEIVER AGREES TO LOOK ONLY TO SUCH
- * THIRD PARTY FOR ANY WARRANTY CLAIM RELATING THERETO. RECEIVER EXPRESSLY ACKNOWLEDGES
- * THAT IT IS RECEIVER'S SOLE RESPONSIBILITY TO OBTAIN FROM ANY THIRD PARTY ALL PROPER LICENSES
- * CONTAINED IN MEDIATEK SOFTWARE. MEDIATEK SHALL ALSO NOT BE RESPONSIBLE FOR ANY MEDIATEK
- * SOFTWARE RELEASES MADE TO RECEIVER'S SPECIFICATION OR TO CONFORM TO A PARTICULAR
- * STANDARD OR OPEN FORUM. RECEIVER'S SOLE AND EXCLUSIVE REMEDY AND MEDIATEK'S ENTIRE AND
- * CUMULATIVE LIABILITY WITH RESPECT TO THE MEDIATEK SOFTWARE RELEASED HEREUNDER WILL BE,
- * AT MEDIATEK'S OPTION, TO REVISE OR REPLACE THE MEDIATEK SOFTWARE AT ISSUE,
- * OR REFUND ANY SOFTWARE LICENSE FEES OR SERVICE CHARGE PAID BY RECEIVER TO
- * MEDIATEK FOR SUCH MEDIATEK SOFTWARE AT ISSUE.
- *
- * The following software/firmware and/or related documentation ("MediaTek Software")
- * have been modified by MediaTek Inc. All revisions are subject to any receiver's
- * applicable license agreements with MediaTek Inc.
- */
-
 #ifndef _KD_IMGSENSOR_DATA_H
 #define _KD_IMGSENSOR_DATA_H
 
@@ -86,75 +51,6 @@ enum
 };
 
 
-#if 0
-// defined the enum for enumerating the ISO/Binning information about each ISO mode.
-typedef enum
-{
-  ISO_100_MODE =0,
-  ISO_200_MODE,
-  ISO_400_MODE,
-  ISO_800_MODE,
-  ISO_1600_MODE,
-  ISO_MAX_MODE
-} ACDK_ISP_ISO_ENUM;
-
-typedef struct
-{
-  MUINT32              MaxWidth;
-  MUINT32              MaxHeight;
-  MINT32            ISOSupported;
-  MINT32                BinningEnable;
-} ACDK_ISP_BINNING_INFO_STRUCT, *PACDK_ISP_BINNING_INFO_STRUCT;
-//#endif /* __MSDK_ISP_Feature_H */
-
-
-typedef struct
-{
-    ACDK_ISP_BINNING_INFO_STRUCT    ISOBinningInfo[ISO_MAX_MODE];
-} CAMERA_ISO_BINNING_INFO_STRUCT, *PCAMERA_ISO_BINNING_INFO_STRUCT;
-
-#endif
-
-/*
-typedef enum
-{
-    ACDK_SCENARIO_ID_CAMERA_PREVIEW=0,
-    ACDK_SCENARIO_ID_VIDEO_PREVIEW,
-    ACDK_SCENARIO_ID_VIDEO_CAPTURE_MPEG4,
-    ACDK_SCENARIO_ID_CAMERA_CAPTURE_JPEG,
-    ACDK_SCENARIO_ID_CAMERA_CAPTURE_MEM,
-    ACDK_SCENARIO_ID_CAMERA_BURST_CAPTURE_JPEG,
-    ACDK_SCENARIO_ID_VIDEO_DECODE_MPEG4,
-    ACDK_SCENARIO_ID_VIDEO_DECODE_H263,
-    ACDK_SCENARIO_ID_VIDEO_DECODE_H264,
-    ACDK_SCENARIO_ID_VIDEO_DECODE_WMV78,
-    ACDK_SCENARIO_ID_VIDEO_DECODE_WMV9,
-    ACDK_SCENARIO_ID_VIDEO_DECODE_MPEG2,
-    ACDK_SCENARIO_ID_IMAGE_YUV2RGB,
-    ACDK_SCENARIO_ID_IMAGE_RESIZE,
-    ACDK_SCENARIO_ID_IMAGE_ROTATE,
-    ACDK_SCENARIO_ID_IMAGE_POST_PROCESS,
-    ACDK_SCENARIO_ID_JPEG_RESIZE,
-    ACDK_SCENARIO_ID_JPEG_DECODE,
-    ACDK_SCENARIO_ID_JPEG_PARSE,
-    ACDK_SCENARIO_ID_JPEG_ENCODE,
-    ACDK_SCENARIO_ID_JPEG_ENCODE_THUMBNAIL,
-    ACDK_SCENARIO_ID_DRIVER_IO_CONTROL,
-    ACDK_SCENARIO_ID_DO_NOT_CARE,
-    ACDK_SCENARIO_ID_IMAGE_DSPL_BUFFER_ALLOC,
-    ACDK_SCENARIO_ID_TV_OUT,
-    ACDK_SCENARIO_ID_VIDOE_ENCODE_WITHOUT_PREVIEW,      // for LTK test case
-    ACDK_SCENARIO_ID_CAMERA_CAPTURE_JPEG_BACK_PREVIEW,  // for LTK test case
-    ACDK_SCENARIO_ID_VIDEO_DECODE_RV8,
-    ACDK_SCENARIO_ID_VIDEO_DECODE_RV9,
-    ACDK_SCENARIO_ID_CAMERA_ZSD,
-    ACDK_SCENARIO_ID_CAMERA_3D_PREVIEW,
-    ACDK_SCENARIO_ID_CAMERA_3D_CAPTURE,
-    ACDK_SCENARIO_ID_MAX,    
-}   ACDK_SCENARIO_ID_ENUM;
-*/
-
-
 typedef enum
 {
     MSDK_SCENARIO_ID_CAMERA_PREVIEW=0,
@@ -166,6 +62,7 @@ typedef enum
     MSDK_SCENARIO_ID_CAMERA_3D_CAPTURE,
     MSDK_SCENARIO_ID_CAMERA_3D_VIDEO,
     MSDK_SCENARIO_ID_TV_OUT,
+    MSDK_SCENARIO_ID_HIGH_SPEED_VIDEO1,
     MSDK_SCENARIO_ID_MAX,    
 }   MSDK_SCENARIO_ID_ENUM;
 
@@ -249,6 +146,24 @@ typedef enum
   SENSOR_FEATURE_SET_MAX_FRAME_RATE_BY_SCENARIO,
   SENSOR_FEATURE_GET_DEFAULT_FRAME_RATE_BY_SCENARIO,
   SENSOR_FEATURE_GET_AE_AWB_LOCK_INFO,
+  SENSOR_FEATURE_AUTOTEST_CMD,
+  SENSOR_FEATURE_GET_TEST_PATTERN_CHECKSUM_VALUE,
+  SENSOR_FEATURE_GET_TEMPERATURE_VALUE,
+  SENSOR_FEATURE_GET_SENSOR_CURRENT_TEMPERATURE,
+  SENSOR_FEATURE_GET_AE_FLASHLIGHT_INFO,
+  SENSOR_FEATURE_GET_TRIGGER_FLASHLIGHT_INFO, //Trigger flashlight or not
+  SENSOR_FEATURE_SET_YUV_3A_CMD,
+  SENSOR_FEATURE_SET_N3D_I2C_STREAM_REGDATA,
+  SENSOR_FEATURE_SET_N3D_STOP_STREAMING,
+  SENSOR_FEATURE_SET_N3D_START_STREAMING,
+  SENSOR_FEATURE_GET_SENSOR_N3D_STREAM_TO_VSYNC_TIME,
+  SENSOR_FEATURE_SET_ESHUTTER_GAIN,
+  SENSOR_FEATURE_SET_OB_LOCK,
+  SENSOR_FEATURE_GET_YUV_CAPTURE_OUTPUT_JPEG,
+  SENSOR_FEATURE_SET_YUV_JPEG_PARA,
+  SENSOR_FEATURE_GET_YUV_JPEG_INFO,
+  SENSOR_FEATURE_SET_FRAMERATE,
+  SENSOR_FEATURE_SET_IHDR,
   SENSOR_FEATURE_MAX
 } ACDK_SENSOR_FEATURE_ENUM;
 
@@ -266,6 +181,7 @@ typedef enum
 {
   SENSOR_INTERFACE_TYPE_PARALLEL=0,
   SENSOR_INTERFACE_TYPE_MIPI,
+  SENSOR_INTERFACE_TYPE_SERIAL,  // add for 72 ATV using serial interface
   SENSOR_INTERFACE_TYPE_MAX
 } ACDK_SENSOR_INTERFACE_TYPE_ENUM;
 
@@ -297,6 +213,12 @@ typedef enum
   SENSOR_MIPI_4_LANE
 } ACDK_SENSOR_MIPI_LANE_NUMBER_ENUM;
 
+typedef enum
+{
+    MIPI_OPHY_NCSI2 = 0,
+    MIPI_OPHY_CSI2 = 1,
+}SENSOR_MIPI_TYPE_ENUM;
+
 typedef struct
 {
   MUINT16 SensorPreviewWidth;
@@ -313,6 +235,34 @@ typedef struct
   MUINT16 Sensor3DFullHeight;
   MUINT16 Sensor3DVideoWidth;
   MUINT16 Sensor3DVideoHeight;  
+  MUINT16 SensorEffectivePreviewWidth;
+  MUINT16 SensorEffectivePreviewHeight;
+  MUINT16 SensorEffectiveFullWidth;
+  MUINT16 SensorEffectiveFullHeight;
+  MUINT16 SensorEffectiveVideoWidth;
+  MUINT16 SensorEffectiveVideoHeight;
+  MUINT16 SensorEffectiveHighSpeedVideoWidth;
+  MUINT16 SensorEffectiveHighSpeedVideoHeight;
+  MUINT16 SensorEffective3DPreviewWidth;
+  MUINT16 SensorEffective3DPreviewHeight;
+  MUINT16 SensorEffective3DFullWidth;
+  MUINT16 SensorEffective3DFullHeight;
+  MUINT16 SensorEffective3DVideoWidth;
+  MUINT16 SensorEffective3DVideoHeight; 
+  MUINT16 SensorPreviewWidthOffset;//from effective width to output width
+  MUINT16 SensorPreviewHeightOffset;//from effective height to output height
+  MUINT16 SensorFullWidthOffset;//from effective width to output width
+  MUINT16 SensorFullHeightOffset;//from effective height to output height
+  MUINT16 SensorVideoWidthOffset;//from effective width to output width
+  MUINT16 SensorVideoHeightOffset;//from effective height to output height
+  MUINT16 SensorHighSpeedVideoWidthOffset;//from effective width to output width
+  MUINT16 SensorHighSpeedVideoHeightOffset;//from effective height to output height
+  MUINT16 Sensor3DPreviewWidthOffset;//from effective width to output width
+  MUINT16 Sensor3DPreviewHeightOffset;//from effective height to output height
+  MUINT16 Sensor3DFullWidthOffset;//from effective width to output width
+  MUINT16 Sensor3DFullHeightOffset;//from effective height to output height
+  MUINT16 Sensor3DVideoWidthOffset;//from effective width to output width
+  MUINT16 Sensor3DVideoHeightOffset;//from effective height to output height
 } ACDK_SENSOR_RESOLUTION_INFO_STRUCT, *PACDK_SENSOR_RESOLUTION_INFO_STRUCT;
 
 
@@ -360,6 +310,10 @@ typedef struct
   MUINT8   SensorWidthSampling;
   MUINT8   SensorHightSampling;  
   MUINT8   SensorPacketECCOrder;
+  SENSOR_MIPI_TYPE_ENUM MIPIsensorType;
+  MUINT8   SensorCaptureOutputJPEG; //JPEG file or not?
+  MUINT8    IHDR_Support;
+  MUINT16   IHDR_LE_FirstLine;
 } ACDK_SENSOR_INFO_STRUCT, *PACDK_SENSOR_INFO_STRUCT;
 
 
@@ -441,6 +395,8 @@ typedef enum
 	ACDK_SENSOR_OPERATION_MODE_CAMERA_PREVIEW=0,
 	ACDK_SENSOR_OPERATION_MODE_VIDEO,
 	ACDK_SENSOR_OPERATION_MODE_STILL_CAPTURE,
+    ACDK_SENSOR_OPERATION_MODE_HIGHSP_VIDEO1,
+    ACDK_SENSOR_OPERATION_MODE_HIGHSP_VIDEO2,
 	ACDK_SENSOR_OPERATION_MODE_WEB_CAPTURE,
 	ACDK_SENSOR_OPERATION_MODE_MAX
 } ACDK_SENSOR_OPERATION_MODE_ENUM;
@@ -480,12 +436,23 @@ typedef struct
 	MUINT32  FrameLines;      //valid+dummy lines for minimum shutter
 }	ACDK_SENSOR_CONFIG_STRUCT;
 
+typedef enum
+{
+    MCLK_48MHZ_GROUP = 0x1,
+    MCLK_52MHZ_GROUP = 0x2,
+}ACKD_SENSOR_MCLK_ENUM;
+
+typedef struct
+{
+    MUINT8 on;
+    ACKD_SENSOR_MCLK_ENUM freq;
+}ACDK_SENSOR_MCLK_STRUCT;
 
 /*******************************************************************************
 *
 ********************************************************************************/
 
-#define MAXIMUM_NVRAM_CAMERA_SENSOR_FILE_SIZE       4096
+#define MAXIMUM_NVRAM_CAMERA_SENSOR_FILE_SIZE_KERNEL       4096
 
 #define NVRAM_CAMERA_SENSOR_FILE_VERSION        1
 
@@ -507,11 +474,11 @@ typedef struct
     MUINT32 SensorId;        // ID of sensor module
     SENSOR_REG_STRUCT   SensorEngReg[MAXIMUM_SENSOR_ENG_REG_NUMBER];
     SENSOR_REG_STRUCT   SensorCCTReg[MAXIMUM_SENSOR_CCT_REG_NUMBER];
-    MUINT8 CameraData[MAXIMUM_NVRAM_CAMERA_SENSOR_FILE_SIZE/2-8-sizeof(SENSOR_REG_STRUCT)*(MAXIMUM_SENSOR_ENG_REG_NUMBER+MAXIMUM_SENSOR_CCT_REG_NUMBER)];
+    MUINT8 CameraData[MAXIMUM_NVRAM_CAMERA_SENSOR_FILE_SIZE_KERNEL/2-8-sizeof(SENSOR_REG_STRUCT)*(MAXIMUM_SENSOR_ENG_REG_NUMBER+MAXIMUM_SENSOR_CCT_REG_NUMBER)];
 } NVRAM_SENSOR_DATA_STRUCT, *PNVRAM_SENSOR_DATA_STRUCT;
 
-#define MAX_SENSOR_CAL_SIZE     (1024) //Byte
-#define MAX_SHADING_DATA_TBL ((MAX_SENSOR_CAL_SIZE-8)/4)
+#define MAX_SENSOR_CAL_SIZE_KERNEL     (1024) //Byte
+#define MAX_SHADING_DATA_TBL ((MAX_SENSOR_CAL_SIZE_KERNEL-8)/4)
 typedef struct
 {
 	MUINT32 DataFormat;
@@ -528,6 +495,13 @@ typedef struct{
 }ACDK_SENSOR_GETINFO_STRUCT, *PACDK_SENSOR_GETINFO_STRUCT;
 
 
+typedef struct{
+    MUINT32                             SensorId;
+    ACDK_SENSOR_INFO_STRUCT             *pInfo[3]; // Capture / preview / video
+    ACDK_SENSOR_CONFIG_STRUCT           *pConfig[3];
+    ACDK_SENSOR_RESOLUTION_INFO_STRUCT  *pSensorResolution[2];
+}IMAGESENSOR_GETINFO_STRUCT, *PIMAGESENSOR_GETINFO_STRUCT;
+
 
 typedef struct{
 	CAMERA_DUAL_CAMERA_SENSOR_ENUM InvokeCamera;
@@ -537,6 +511,7 @@ typedef struct{
 }ACDK_SENSOR_FEATURECONTROL_STRUCT, *PACDK_SENSOR_FEATURECONTROL_STRUCT;
 
 typedef struct{
+	CAMERA_DUAL_CAMERA_SENSOR_ENUM InvokeCamera;
     MSDK_SCENARIO_ID_ENUM ScenarioId;
     ACDK_SENSOR_EXPOSURE_WINDOW_STRUCT *pImageWindow;
 	ACDK_SENSOR_CONFIG_STRUCT *pSensorConfigData;
@@ -630,6 +605,17 @@ typedef struct
    MUINT32 (* SensorControl) (MSDK_SCENARIO_ID_ENUM ScenarioId,MSDK_SENSOR_EXPOSURE_WINDOW_STRUCT *pImageWindow, MSDK_SENSOR_CONFIG_STRUCT *pSensorConfigData);
    MUINT32 (* SensorClose)(void);
 } MULTI_SENSOR_FUNCTION_STRUCT, *PMULTI_SENSOR_FUNCTION_STRUCT;
+
+typedef struct
+{
+   MUINT32 (* SensorOpen)(void);
+   MUINT32 (* SensorGetInfo) (MUINT32 *pScenarioId[2], MSDK_SENSOR_INFO_STRUCT *pSensorInfo[2],
+                               MSDK_SENSOR_CONFIG_STRUCT *pSensorConfigData[2]);
+   MUINT32 (* SensorGetResolution) (MSDK_SENSOR_RESOLUTION_INFO_STRUCT *pSensorResolution[2]);
+   MUINT32 (* SensorFeatureControl) (CAMERA_DUAL_CAMERA_SENSOR_ENUM InvokeCamera,MSDK_SENSOR_FEATURE_ENUM FeatureId, MUINT8 *pFeaturePara,MUINT32 *pFeatureParaLen);
+   MUINT32 (* SensorControl) (CAMERA_DUAL_CAMERA_SENSOR_ENUM InvokeCamera,MSDK_SCENARIO_ID_ENUM ScenarioId,MSDK_SENSOR_EXPOSURE_WINDOW_STRUCT *pImageWindow, MSDK_SENSOR_CONFIG_STRUCT *pSensorConfigData);
+   MUINT32 (* SensorClose)(void);
+} MULTI_SENSOR_FUNCTION_STRUCT2, *PMULTI_SENSOR_FUNCTION_STRUCT2;
 
 
 typedef struct
@@ -739,8 +725,16 @@ typedef struct
     MUINT32 InitDelay;
     MUINT32 EffectDelay;
     MUINT32 AwbDelay;
+    MUINT32 AFSwitchDelayFrame;
 }SENSOR_DELAY_INFO_STRUCT, *PSENSOR_DELAY_INFO_STRUCT;
 
+typedef struct
+{
+    MUINT32 u4Fno;
+    MUINT32 Exposuretime;
+    MUINT32 Gain;
+    MUINT32 GAIN_BASE;
+}SENSOR_FLASHLIGHT_AE_INFO_STRUCT, *PSENSOR_FLASHLIGHT_AE_INFO_STRUCT;
 
 //multisensor driver
 
@@ -762,6 +756,36 @@ typedef enum {
     IMGSENSOR_SET_I2C_ID_STATE  = 0x00,
     IMGSENSOR_SET_I2C_ID_FORCE
 } IMGSENSOR_SET_I2C_ID_ENUM;
+
+
+
+typedef enum
+{
+  SENSOR_3A_AE_LOCK=0,
+  SENSOR_3A_AE_UNLOCK,
+  SENSOR_3A_AWB_LOCK,
+  SENSOR_3A_AWB_UNLOCK,
+  //SENSOR_3A_AF_LOCK,
+  //SENSOR_3A_AF_UNLOCK,
+} ACDK_SENSOR_3A_LOCK_ENUM;
+
+
+typedef struct
+{
+   MUINT32 tgtWidth;
+   MUINT32 tgtHeight;
+   MUINT32 quality;
+
+}ACDK_SENSOR_JPEG_OUTPUT_PARA;
+
+
+// for JPEG Sensor Info
+typedef struct {
+    MUINT32 u4FileSize;      // For input sensor width
+    MUINT32 u4SrcW;          // For input sensor width
+    MUINT32 u4SrcH;          // For input sensor height
+} ACDK_SENSOR_JPEG_INFO;
+
 
 #endif //_KD_IMGSENSOR_DATA_H
 

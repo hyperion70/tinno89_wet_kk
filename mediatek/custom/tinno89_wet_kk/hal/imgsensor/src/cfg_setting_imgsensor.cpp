@@ -132,10 +132,10 @@ SensorViewAngle_T const&
 getSensorViewAngle()
 {
     static SensorViewAngle_T const inst = {
-        MainSensorHorFOV  : 64,   
-        MainSensorVerFOV  : 49,    
-        SubSensorHorFOV  : 0,   
-        SubSensorVerFOV  : 0,
+        MainSensorHorFOV  : 55,   
+        MainSensorVerFOV  : 42,    
+        SubSensorHorFOV  : 60,   
+        SubSensorVerFOV  : 40,
         Main2SensorHorFOV  : 0,   //not support
         Main2SensorVerFOV  : 0,
     };

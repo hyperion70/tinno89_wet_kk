@@ -28,6 +28,8 @@ FID_TO_TYPE_ENUM  (
         //  (Unsupported legacy symbol; don't use this symbol if possible)
         SCENE_MODE_BRACKET_AE,                      // Bracket AE
         SCENE_MODE_HDR, 
+        SCENE_MODE_FACE_PRIORITY,
+        SCENE_MODE_BARCODE,
         SCENE_MODE_NUM
     )
 ) SCENE_MODE_T;
@@ -50,6 +52,15 @@ FID_TO_TYPE_ENUM  (
         MEFFECT_WHITEBOARD, 
         MEFFECT_SEPIAGREEN, 
         MEFFECT_SEPIABLUE, 
+        MEFFECT_NASHVILLE  ,        // 
+        MEFFECT_HEFE ,
+        MEFFECT_VALENCIA ,
+        MEFFECT_XPROII ,
+        MEFFECT_LOFI ,
+        MEFFECT_SIERRA ,
+        MEFFECT_KELVIN ,
+        MEFFECT_WALDEN ,
+        MEFFECT_F1977 ,        //
         MEFFECT_NUM
     )
 ) MCOLOR_EFFECT;
@@ -564,6 +575,26 @@ FID_TO_TYPE_ENUM  (
         NUM_OF_STEREO_3D_IMAGE_FORMAT
     )
 ) STEREO_3D_IMAGE_FORMAT_T;
+
+//  YUV Auto test
+FID_TO_TYPE_ENUM  (
+    FID_YUV_AUTOTEST, 
+    FTYPE_ENUM  (
+        YUV_AUTOTEST_BEGIN       =   0,         
+        YUV_AUTOTEST_SET_SHADDING     =   YUV_AUTOTEST_BEGIN, 
+        YUV_AUTOTEST_SET_GAMMA,
+        YUV_AUTOTEST_SET_AE,
+        YUV_AUTOTEST_SET_SHUTTER,
+        YUV_AUTOTEST_SET_GAIN,
+        YUV_AUTOTEST_GET_SHUTTER_RANGE,
+        YUV_AUTOTEST_GET_SHADDING,
+        YUV_AUTOTEST_GET_GAMMA,
+        YUV_AUTOTEST_GET_AE,
+        YUV_AUTOTEST_GET_SHUTTER,        
+        YUV_AUTOTEST_GET_GAIN,
+	    NUM_OF_YUV_AUTOTEST
+    )
+) YUV_AUTOTEST_T;
 
 #endif  //_KD_CAMERA_FEATURE_ENUM_H_
 

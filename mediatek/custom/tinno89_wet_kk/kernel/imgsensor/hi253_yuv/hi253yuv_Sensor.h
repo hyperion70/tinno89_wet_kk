@@ -36,7 +36,7 @@
 
 #define HI253_WRITE_ID        0x40
 
-#define HI253_GRAB_START_X    (3)//LINE <> <DATE20121228> <change camera color> wupingzhou
+#define HI253_GRAB_START_X    (1)
 #define HI253_GRAB_START_Y    (1)
 #define HI253_PV_WIDTH        (800 - 8)
 #define HI253_PV_HEIGHT       (600 - 6)

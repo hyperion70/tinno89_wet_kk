@@ -28,8 +28,8 @@ typedef struct{
 }VBAT_TO_PERCENT;
 
 /* Battery Temperature Protection */
-#define MAX_CHARGE_TEMPERATURE  50
-#define MIN_CHARGE_TEMPERATURE  0
+#define MAX_CHARGE_TEMPERATURE  55
+#define MIN_CHARGE_TEMPERATURE  (-6)
 #define ERR_CHARGE_TEMPERATURE  0xFF
 
 /* Recharging Battery Voltage */
@@ -42,6 +42,7 @@ typedef struct{
 #define USB_CHARGER_CURRENT_CONFIGURED		Cust_CC_450MA	// def CONFIG_USB_IF
 #define USB_CHARGER_CURRENT					Cust_CC_450MA
 #define AC_CHARGER_CURRENT					Cust_CC_650MA	
+#define bq24158_AC_CHARGING_CURRENT_750 750
 
 /* Battery Meter Solution */
 #define CONFIG_ADC_SOLUTION 	1
@@ -50,28 +51,24 @@ typedef struct{
 VBAT_TO_PERCENT Batt_VoltToPercent_Table[] = {
 	/*BattVolt,BattPercent*/
 	{3400,0},
-	{3641,10},
-	{3708,20},
-	{3741,30},
-	{3765,40},
-	{3793,50},
-	{3836,60},
-	{3891,70},
-	{3960,80},
-	{4044,90},
-	{4183,100},
+	{3691,10},
+	{3736,20},
+	{3772,30},
+	{3797,40},
+	{3828,50},
+	{3888,60},
+	{3944,70},
+	{4010,80},
+	{4100,90},
+	{4176,100},
 };
 
 /* Precise Tunning */
-#define BATTERY_AVERAGE_SIZE 	30
+#define BATTERY_AVERAGE_SIZE 	12
 //#define BATTERY_AVERAGE_SIZE   3
 
 /* Common setting */
-#if defined(DCT_V936) || defined(DCT_K7T) || defined(DCT_K7W)
-#define R_CURRENT_SENSE 1				// 0.1 Ohm
-#else
 #define R_CURRENT_SENSE 2				// 0.2 Ohm
-#endif
 #define R_BAT_SENSE 4					// times of voltage
 #define R_I_SENSE 4						// times of voltage
 #define R_CHARGER_1 330
@@ -88,19 +85,13 @@ VBAT_TO_PERCENT Batt_VoltToPercent_Table[] = {
 //#define TBAT_OVER_CRITICAL_LOW     483954
 #define TBAT_OVER_CRITICAL_LOW     67790
 #define BAT_TEMP_PROTECT_ENABLE    1
-
-#ifndef MTK_FAN5405_SUPPORT
 #define BAT_NTC_10 1
-#endif
 #define BAT_NTC_47 0
-#define BAT_NTC_CG103JF103F
+//#define BAT_NTC_CG103JF103F
 
 /* Battery Notify */
 #define BATTERY_NOTIFY_CASE_0001
-#if (defined(K29W_K2L3))
-#else
 #define BATTERY_NOTIFY_CASE_0002
-#endif
 //#define BATTERY_NOTIFY_CASE_0003
 //#define BATTERY_NOTIFY_CASE_0004
 //#define BATTERY_NOTIFY_CASE_0005
