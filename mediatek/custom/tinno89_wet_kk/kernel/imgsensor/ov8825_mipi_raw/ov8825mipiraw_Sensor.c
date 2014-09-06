@@ -1762,8 +1762,7 @@ UINT32 OV8825Preview(MSDK_SENSOR_EXPOSURE_WINDOW_STRUCT *image_window,
 	//set mirror & flip
 	//OV8825DB("[OV8825Preview] mirror&flip: %d \n",sensor_config_data->SensorImageMirror);
 	spin_lock(&ov8825mipiraw_drv_lock);
-	//ov8825.imgMirror = sensor_config_data->SensorImageMirror;
-	ov8825.imgMirror =IMAGE_HV_MIRROR; //by module layout
+	ov8825.imgMirror = sensor_config_data->SensorImageMirror;
 	spin_unlock(&ov8825mipiraw_drv_lock);
 	//OV8825SetFlipMirror(sensor_config_data->SensorImageMirror);
 	OV8825SetFlipMirror(IMAGE_HV_MIRROR);
@@ -1798,8 +1797,7 @@ UINT32 OV8825Video(MSDK_SENSOR_EXPOSURE_WINDOW_STRUCT *image_window,
 	spin_unlock(&ov8825mipiraw_drv_lock);
 
 	spin_lock(&ov8825mipiraw_drv_lock);
-	//ov8825.imgMirror = sensor_config_data->SensorImageMirror;
-	ov8825.imgMirror =IMAGE_HV_MIRROR; //by module layout
+	ov8825.imgMirror = sensor_config_data->SensorImageMirror;
 	spin_unlock(&ov8825mipiraw_drv_lock);
 	//OV8825SetFlipMirror(sensor_config_data->SensorImageMirror);
 	OV8825SetFlipMirror(IMAGE_HV_MIRROR);
@@ -1844,9 +1842,8 @@ UINT32 OV8825Capture(MSDK_SENSOR_EXPOSURE_WINDOW_STRUCT *image_window,
 	OV8825_SetDummy(ov8825.DummyPixels,ov8825.DummyLines);
 
 	spin_lock(&ov8825mipiraw_drv_lock);
-	ov8825.sensorMode = SENSOR_MODE_CAPTURE;
-	//ov8825.imgMirror = sensor_config_data->SensorImageMirror;
-	ov8825.imgMirror =IMAGE_HV_MIRROR; //by module layout
+
+	ov8825.imgMirror = sensor_config_data->SensorImageMirror;
 	ov8825.DummyPixels = 0;//define dummy pixels and lines
 	ov8825.DummyLines = 0 ;
 	OV8825_FeatureControl_PERIOD_PixelNum = OV8825_FULL_PERIOD_PIXEL_NUMS + ov8825.DummyPixels;
