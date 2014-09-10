@@ -1,12 +1,10 @@
 #ifndef BUILD_LK
 #include <linux/string.h>
-#include <linux/kernel.h>
 #endif
 #include "lcm_drv.h"
 
 #ifdef BUILD_LK
 	#include <platform/mt_gpio.h>
-	#include <string.h>
 #elif defined(BUILD_UBOOT)
 	#include <asm/arch/mt_gpio.h>
 #else
@@ -29,6 +27,8 @@
     #define FALSE 0
 #endif
 
+static unsigned int lcm_esd_test = FALSE;      ///only for ESD test
+
 // ---------------------------------------------------------------------------
 //  Local Variables
 // ---------------------------------------------------------------------------
@@ -40,7 +40,7 @@ static LCM_UTIL_FUNCS lcm_util = {0};
 #define UDELAY(n) (lcm_util.udelay(n))
 #define MDELAY(n) (lcm_util.mdelay(n))
 
-
+#define  LCM_RESET_PIN  131
 // ---------------------------------------------------------------------------
 //  Local Functions
 // ---------------------------------------------------------------------------
@@ -60,9 +60,8 @@ static void init_lcm_registers(void)
 {
 	unsigned int data_array[16];
 
-	
-	data_array[0] = 0x00023902;                          
-    data_array[1] = 0x0000A3E1;                 
+    	data_array[0] = 0x00023902;                          
+	data_array[1] = 0x0000A3E1;  //0x000093E1           //wangyanhui modify     
     dsi_set_cmdq(data_array, 2, 1);
 	//MDELAY(1);
 	
@@ -149,7 +148,79 @@ static void init_lcm_registers(void)
     dsi_set_cmdq(data_array, 3, 1); 
 	//MDELAY(1);
 
-	
+//BEGIN<20130409><Gamma>wangyanhui
+data_array[0] = 0x00073902;
+    data_array[1] = 0x1E0000D0;    //0x100000D0;
+data_array[2] = 0x00352D27;   //0x002E221E;
+    dsi_set_cmdq(data_array, 3, 1);
+//MDELAY(1);
+
+data_array[0] = 0x00063902;
+    data_array[1] = 0x1A272DD1;     //0x232B26D1;
+data_array[2] = 0x00000A1B;    //0x00000A1B;
+    dsi_set_cmdq(data_array, 3, 1);
+//MDELAY(1);
+
+data_array[0] = 0x00073902;
+    data_array[1] = 0x1E0000D2;    //0x100000D2;
+data_array[2] = 0x00352D27;   //0x002E221E;
+    dsi_set_cmdq(data_array, 3, 1);
+//MDELAY(1);
+
+data_array[0] = 0x00063902;
+    data_array[1] = 0x1A272DD3;     //0x232B26D3;
+data_array[2] = 0x00000A1B;    //0x00000A1B;
+    dsi_set_cmdq(data_array, 3, 1);
+//MDELAY(1);
+
+data_array[0] = 0x00073902;
+    data_array[1] = 0x1E0000D4;    //0x100000D4;
+data_array[2] = 0x00352D27;   //0x002E221E;
+    dsi_set_cmdq(data_array, 3, 1);
+//MDELAY(1);
+
+data_array[0] = 0x00063902;
+    data_array[1] = 0x1A272DD5;     //0x232B26D5;
+data_array[2] = 0x00000A1B;    //0x00000A1B;
+    dsi_set_cmdq(data_array, 3, 1);
+//MDELAY(1);
+
+data_array[0] = 0x00073902;
+    data_array[1] = 0x1E0000D6;    //0x100000D6;
+data_array[2] = 0x00352D27;   //0x002E221E;
+    dsi_set_cmdq(data_array, 3, 1);
+//MDELAY(1);
+
+data_array[0] = 0x00063902;
+    data_array[1] = 0x1A272DD7;     //0x232B26D7;
+data_array[2] = 0x00000A1B;    //0x00000A1B;
+    dsi_set_cmdq(data_array, 3, 1);
+//MDELAY(1);
+
+data_array[0] = 0x00073902;
+    data_array[1] = 0x1E0000D8;    //0x100000D8;
+data_array[2] = 0x00352D27;   //0x002E221E;
+    dsi_set_cmdq(data_array, 3, 1);
+//MDELAY(1);
+
+data_array[0] = 0x00063902;
+    data_array[1] = 0x1A272DD9;     //0x232B26D9;
+data_array[2] = 0x00000A1B;    //0x00000A1B;
+    dsi_set_cmdq(data_array, 3, 1);
+//MDELAY(1);
+
+data_array[0] = 0x00073902;
+    data_array[1] = 0x1E0000DA;    //0x100000DA;
+data_array[2] = 0x00352D27;   //0x002E221E;
+    dsi_set_cmdq(data_array, 3, 1);
+//MDELAY(1);
+
+data_array[0] = 0x00063902;
+    data_array[1] = 0x1A272DDB;     //0x232B26DB;
+data_array[2] = 0x00000A1B;    //0x00000A1B;
+    dsi_set_cmdq(data_array, 3, 1);
+//MDELAY(1);
+#if 0	
 	data_array[0] = 0x00073902;                          
     data_array[1] = 0x100000D0; 
 	data_array[2] = 0x002E221E; 
@@ -226,6 +297,8 @@ static void init_lcm_registers(void)
 	data_array[2] = 0x00000A1B; 
     dsi_set_cmdq(data_array, 3, 1); 
 	//MDELAY(1);
+#endif
+//END<20130409><Gamma>wangyanhui
 
 	data_array[0] = 0x00053902;                          
     data_array[1] = 0xFF00D870; 
@@ -238,6 +311,7 @@ static void init_lcm_registers(void)
     dsi_set_cmdq(data_array, 2, 1); 
 	MDELAY(1);
 
+#if 1											//diff with truly    lishengli   20121213  begin  
 // add cmd-c6 
 	data_array[0] = 0x00033902; 						 
 	data_array[1] = 0x003399C6; 				
@@ -256,9 +330,16 @@ static void init_lcm_registers(void)
     data_array[1] = 0x00000014; 
 	//data_array[2] = 0x00130D0C; 
     dsi_set_cmdq(data_array, 2, 1);
-//legen modify end
+//legen modify end							//diff with truly    lishengli   20121213  end
+#endif
+
+	//data_array[0] = 0x00053902;                          
+    //data_array[1] = 0x1C2E1CF6; 
+    //data_array[2] = 0x0000002C; 	
+    //dsi_set_cmdq(data_array, 3, 1);
 
 
+	
 	data_array[0] = 0x00023902;                          
     data_array[1] = 0x000007E9;                 
     dsi_set_cmdq(data_array, 2, 1); 
@@ -281,16 +362,24 @@ static void init_lcm_registers(void)
 	//MDELAY(1);
  
 	data_array[0] = 0x00083902;                          
-    data_array[1] = 0x340703C3; 
-	data_array[2] = 0x54440105; 
+	data_array[1] = 0x340503C3;     //0x340503C3
+	data_array[2] = 0x54440105;		//0x54440105; 	//add by lishengli 20130620
     dsi_set_cmdq(data_array, 3, 1);
 	//MDELAY(1);
 
+//add by lishengli 20130620 begin
+/*
 	data_array[0] = 0x00063902; 
-    data_array[1] = 0x700302C4;  //0x701303c4
-	data_array[2] = 0x00005A70;  //0x00005C70
+	data_array[1] = 0x580302C4;  //0x701303c4 //0x700302C4
+	data_array[2] = 0x00005A58;  //0x00005C70
+*/
+        data_array[0] = 0x00063902;
+        data_array[1] = 0x58030AC4;
+        data_array[2] = 0x00005A54; //0x0000565A;
     dsi_set_cmdq(data_array, 3, 1);
 	//MDELAY(1);
+//add by lishengli 20130620 end
+
 
     #if 0
     //no need to config 0xDE register
@@ -300,8 +389,110 @@ static void init_lcm_registers(void)
     dsi_set_cmdq(&data_array, 3, 1);
 	#endif
     
+	//MDELAY(1);
+
+	//MDELAY(1);
+ 
+	//MDELAY(1);
+
 	data_array[0] = 0x00043902;                          
-    data_array[1] = 0x0080DACB;                 
+	//MDELAY(1);
+
+	//MDELAY(1);
+
+
+    //1 Do not delete 0x11, 0x29 here
+	
+	//MDELAY(1);
+	
+	//MDELAY(1);
+
+	
+    //MDELAY(1);
+	 
+    //MDELAY(1);
+	 
+    //MDELAY(1);
+	 
+	//MDELAY(1);
+	
+	//MDELAY(1);
+
+	
+	//MDELAY(1);
+
+	//MDELAY(1);
+
+	 
+	//MDELAY(1);
+
+	
+	//MDELAY(1);
+
+	
+	//MDELAY(1);
+
+	
+	//MDELAY(1);
+
+	
+	//MDELAY(1);
+
+	
+	//MDELAY(1);
+
+	
+	//MDELAY(1);
+
+	
+	//MDELAY(1);
+
+	
+	//MDELAY(1);
+
+	
+	//MDELAY(1);
+
+	//MDELAY(1);
+
+	//MDELAY(1);
+
+	//MDELAY(1);
+
+	//MDELAY(1);
+
+	//MDELAY(1);
+ 
+	//MDELAY(1);
+
+	//MDELAY(1);
+
+											//diff with truly    lishengli   20121213  begin  
+// add cmd-c6 
+//add end
+
+//legen modify 
+	//data_array[2] = 0x00130D0C; 
+
+
+	//data_array[2] = 0x00130D0C; 
+//legen modify end							//diff with truly    lishengli   20121213  end
+
+
+
+	//MDELAY(1);
+
+	//MDELAY(1);
+ 
+	//MDELAY(1);
+ 
+	//MDELAY(1);
+
+	//MDELAY(1);
+
+    //no need to config 0xDE register
+    
+	data_array[1] = 0x0080DFCB;   //0x0080DACB     //line<20130109>wangyanhui           
     dsi_set_cmdq(data_array, 2, 1); 
 	//MDELAY(1);
 
@@ -322,7 +513,7 @@ static void init_lcm_registers(void)
 	//MDELAY(1);
 
 	data_array[0] = 0x00093902;                          
-    data_array[1] = 0x050500B5;
+    data_array[1] = 0x050500B5;						//diff with truly    lishengli   20121213	
 	data_array[2] = 0x2040041E;                          
     data_array[3] = 0x000000FC;                 
     dsi_set_cmdq(data_array, 4, 1);
@@ -331,7 +522,25 @@ static void init_lcm_registers(void)
 	data_array[0] = 0x00023902;                          
     data_array[1] = 0x00000836;                 
     dsi_set_cmdq(data_array, 2, 1);
-    MDELAY(1);//wait for PLL to lock 
+    MDELAY(1);//wait for PLL to lock 						//diff with truly    lishengli   20121213
+
+#if 0
+	data_array[0] = 0x00023902;                          
+	data_array[1] = 0x00002c53;                 
+	dsi_set_cmdq(data_array, 2, 1);
+
+	data_array[0] = 0x00023902;                          
+	data_array[1] = 0x0000ff51;                 
+	dsi_set_cmdq(data_array, 2, 1);
+
+	data_array[0] = 0x00023902;                          
+	data_array[1] = 0x00000355;                 
+	dsi_set_cmdq(data_array, 2, 1);
+
+	data_array[0] = 0x00023902;                          
+	data_array[1] = 0x0000005e;                 
+	dsi_set_cmdq(data_array, 2, 1);
+#endif
 
     //1 Do not delete 0x11, 0x29 here
 	data_array[0] = 0x00110500; // Sleep Out
@@ -340,6 +549,11 @@ static void init_lcm_registers(void)
 	
 	data_array[0] = 0x00290500; // Display On
 	dsi_set_cmdq(data_array, 1, 1); 
+	data_array[0] = 0x00053902;                          
+	data_array[1] = 0xFFFF18F0;  
+	data_array[2] = 0x00000000;  	
+	dsi_set_cmdq(data_array, 3, 1);
+	
 }
 
 
@@ -379,7 +593,7 @@ static void lcm_get_params(LCM_PARAMS *params)
 		// DSI
 		/* Command mode setting */
 		//1 Three lane or Four lane
-		params->dsi.LANE_NUM				= LCM_THREE_LANE;
+		params->dsi.LANE_NUM				= LCM_FOUR_LANE;			//LCM_THREE_LANE;
 		//The following defined the fomat for data coming from LCD engine.
 		params->dsi.data_format.color_order = LCM_COLOR_ORDER_RGB;
 		params->dsi.data_format.trans_seq   = LCM_DSI_TRANS_SEQ_MSB_FIRST;
@@ -398,7 +612,7 @@ static void lcm_get_params(LCM_PARAMS *params)
 
 		
 		params->dsi.vertical_sync_active				= 3;  //---3
-		params->dsi.vertical_backporch					= 12; //---14
+		params->dsi.vertical_backporch					= 12 ; //---14   12	zhuxiankun 12
 		params->dsi.vertical_frontporch					= 8;  //----8
 		params->dsi.vertical_active_line				= FRAME_HEIGHT; 
 
@@ -409,15 +623,19 @@ static void lcm_get_params(LCM_PARAMS *params)
 
 
 		params->dsi.HS_PRPR=3;
-		params->dsi.CLK_HS_POST=22;
-		params->dsi.DA_HS_EXIT=20;
-
+		params->dsi.CLK_HS_POST = 22;
+		params->dsi.DA_HS_EXIT =35;
+	    	params->dsi.LPX=13; 
+		//params->dsi.HS_PRPR=5;
+		//params->dsi.HS_TRAIL=13;
+	//	params->dsi.noncont_clock = TRUE;
+	//	params->dsi.noncont_clock_period = 2;
 
 		// Bit rate calculation
 		//1 Every lane speed
 		params->dsi.pll_div1=0;		// div1=0,1,2,3;div1_real=1,2,4,4 ----0: 546Mbps  1:273Mbps
 		params->dsi.pll_div2=1;		// div2=0,1,2,3;div1_real=1,2,4,4	
-		params->dsi.fbk_div =19;    // fref=26MHz, fvco=fref*(fbk_div+1)*2/(div1_real*div2_real)	
+		params->dsi.fbk_div =16; //15; //16;    // fref=26MHz, fvco=fref*(fbk_div+1)*2/(div1_real*div2_real)	
 
 }
 
@@ -425,11 +643,12 @@ static void lcm_init(void)
 {
 
 	SET_RESET_PIN(1);
+	MDELAY(5);    //>1ms
 	SET_RESET_PIN(0);
-	MDELAY(1);
+	MDELAY(40);  // >30ms
 	
 	SET_RESET_PIN(1);
-	MDELAY(20);      
+	MDELAY(80);    // >60ms      
 
 	init_lcm_registers();
 
@@ -440,29 +659,61 @@ static void lcm_init(void)
 static void lcm_suspend(void)
 {
 	unsigned int data_array[16];
-
-	data_array[0]=0x00280500; // Display Off
+#if 1
+	data_array[0] = 0x00280500; // Sleep Out
 	dsi_set_cmdq(data_array, 1, 1);
+	MDELAY(20);
 	
-	data_array[0] = 0x00100500; // Sleep In
-	dsi_set_cmdq(data_array, 1, 1);
+	data_array[0] = 0x00100500; // Display On
+	dsi_set_cmdq(data_array, 1, 1); 
+	MDELAY(120);
+#endif
 
-	SET_RESET_PIN(1);
-	SET_RESET_PIN(0);
-	MDELAY(1);
-	SET_RESET_PIN(1);
+#if 1
+
+	data_array[0] = 0x00023902;                          
+	data_array[1] = 0x000001FF;                 
+	dsi_set_cmdq(data_array, 2, 1);
+	
+	data_array[0] = 0x00073902;                          
+	data_array[1] = 0x111815DE;
+	data_array[2] = 0x00180F10;   
+	dsi_set_cmdq(data_array, 3, 1);
+
+	data_array[0] = 0x00083902;                          
+	data_array[1] = 0x340600C3;
+	data_array[2] = 0x54440105;   
+	dsi_set_cmdq(data_array, 3, 1); 
+
+	data_array[0] = 0x00033902;                          
+	data_array[1] = 0x00100CCE; 
+	dsi_set_cmdq(data_array, 2, 1);
+#endif
+
+
+	//SET_RESET_PIN(1);
+	//MDELAY(25);
+	//SET_RESET_PIN(0);
+	//MDELAY(5000);
+	//SET_RESET_PIN(1);
+	//MDELAY(5000);
+	mt_set_gpio_mode(LCM_RESET_PIN, 0);
+	mt_set_gpio_dir(LCM_RESET_PIN,GPIO_DIR_OUT);
+	mt_set_gpio_out(LCM_RESET_PIN, 0);
 }
 
 
 static void lcm_resume(void)
 {
    //1 do lcm init again to solve some display issue
+	mt_set_gpio_mode(LCM_RESET_PIN, 7);
 	SET_RESET_PIN(1);
+   	MDELAY(2);   // > 1ms
 	SET_RESET_PIN(0);
-	MDELAY(1);
+	MDELAY(40); // >30ms
 	
 	SET_RESET_PIN(1);
-	MDELAY(20);      
+	MDELAY(80);  // >60ma      
 
 	init_lcm_registers();
 
@@ -491,18 +742,18 @@ static void lcm_update(unsigned int x, unsigned int y,
 	data_array[0]= 0x00053902;
 	data_array[1]= (x1_MSB<<24)|(x0_LSB<<16)|(x0_MSB<<8)|0x2a;
 	data_array[2]= (x1_LSB);
-	dsi_set_cmdq(data_array, 3, 1);
+	dsi_set_cmdq(&data_array, 3, 1);
 	
 	data_array[0]= 0x00053902;
 	data_array[1]= (y1_MSB<<24)|(y0_LSB<<16)|(y0_MSB<<8)|0x2b;
 	data_array[2]= (y1_LSB);
-	dsi_set_cmdq(data_array, 3, 1);
+	dsi_set_cmdq(&data_array, 3, 1);
 
 	data_array[0]= 0x00290508; //HW bug, so need send one HS packet
-	dsi_set_cmdq(data_array, 1, 1);
+	dsi_set_cmdq(&data_array, 1, 1);
 	
 	data_array[0]= 0x002c3909;
-	dsi_set_cmdq(data_array, 1, 0);
+	dsi_set_cmdq(&data_array, 1, 0);
 
 }
 #endif
@@ -515,14 +766,16 @@ static unsigned int lcm_compare_id(void)
 	unsigned char buffer[2];
 	unsigned int array[16];  
 
-    SET_RESET_PIN(1);
-    SET_RESET_PIN(0);
-    MDELAY(1);
-    SET_RESET_PIN(1);
-    MDELAY(10);
+	SET_RESET_PIN(1);
+   	MDELAY(2);   // > 1ms
+	SET_RESET_PIN(0);
+	MDELAY(40); // >30ms
+	
+	SET_RESET_PIN(1);
+	MDELAY(80);  // >60ma     
 
 	array[0] = 0x00023700;// return byte number
-	dsi_set_cmdq(array, 1, 1);
+	dsi_set_cmdq(&array, 1, 1);
 	MDELAY(10);
 
 	read_reg_v2(0xA1, buffer, 2);
@@ -545,44 +798,79 @@ static unsigned int lcm_compare_id(void)
 
 }
 
-#if 0
+#if 1
 static unsigned int lcm_esd_check(void)
 {
-#ifndef BUILD_LK
-	char  buffer[3];
-	int   array[4];
 
-	/// please notice: the max return packet size is 1
-	/// if you want to change it, you can refer to the following marked code
-	/// but read_reg currently only support read no more than 4 bytes....
-	/// if you need to read more, please let BinHan knows.
-	/*
-			unsigned int data_array[16];
-			unsigned int max_return_size = 1;
-			
-			data_array[0]= 0x00003700 | (max_return_size << 16);	
-			
-			dsi_set_cmdq(&data_array, 1, 1);
-	*/
-	array[0] = 0x00023700;// read id return two byte,version and id
-	dsi_set_cmdq(array, 1, 1);
+    #ifndef BUILD_LK
+      char  buffer[4] = {0xff, 0xff, 0xff , 0xff};
+      int   array[4];
 
-	read_reg_v2(0xA1, buffer, 2);
-	if(buffer[0]==0x20 && buffer[1] == 0x75)
-	{
-		return FALSE;
-	}
-	else
-	{			 
-		return TRUE;
-	}
+     // printk(" lcm_esd_check  ");
+
+      if(lcm_esd_test)
+       {
+           lcm_esd_test = FALSE;
+           return TRUE;
+        }
+#if 0
+        array[0] = 0x00083700;// read id return two byte,version and id
+        dsi_set_cmdq(array, 1, 1);
+        read_reg_v2(0xb2, buffer, 2);
+        printk("    0xb2 buffer[0] = %x  ,buffer[1] = %x \n",buffer[0],buffer[1]);
+		
+       
+
+        array[0] = 0x00083700;// read id return two byte,version and id
+        dsi_set_cmdq(array, 1, 1);
+
+        read_reg_v2(0x54, buffer, 1);
+        printk(" lcm_esd_check  0x54  buffer[0] = %x  \n",buffer[0]);
+
+
+
+        array[0] = 0x00083700;// read id return two byte,version and id
+        dsi_set_cmdq(array, 1, 1);
+        read_reg_v2(0x5f, buffer, 1);
+        printk("  0x5f  buffer[0] = %x  \n",buffer[0]);
+		
+
+
+        array[0] = 0x00083700;// read id return two byte,version and id
+        dsi_set_cmdq(array, 1, 1);
+        read_reg_v2(0xc8, buffer, 2);
+        printk("   0xc8  buffer[0] = %x  ,buffer[1] = %x \n",buffer[0],buffer[1]);
+
+        array[0] = 0x00083700;// read id return two byte,version and id
+        dsi_set_cmdq(array, 1, 1);
+        read_reg_v2(0xed, buffer, 2);
+        printk("  0xed buffer[0] = %x  ,buffer[1] = %x \n",buffer[0],buffer[1]);
+
 #endif
 
+        array[0] = 0x00083700;// read id return two byte,version and id
+        dsi_set_cmdq(array, 1, 1);
+
+        read_reg_v2(0xF5, buffer, 3);
+        //printk(" lcm_esd_check   buffer[0] = %d  ,buffer[1] = %d,buffer[2] = %d \n",buffer[0],buffer[1],buffer[2]);
+
+        //if(((buffer[0]&0xff)==0) && ((buffer[1]&0xf0) ==0)&&((buffer[2]&0x0f)== 0))
+	if(((buffer[0]&0xff)==0) && ((buffer[1]&0xf0) ==0)&&((buffer[2]&0x01)== 0))
+        {
+                return FALSE;
+        }
+        else
+        {
+                return TRUE;
+        }
+     #endif
+	 
 }
+
 
 static unsigned int lcm_esd_recover(void)
 {
-	lcm_init();
+	//lcm_init();
 	lcm_resume();
 
 	return TRUE;
@@ -598,8 +886,8 @@ LCM_DRIVER ssd2075_hd720_dsi_vdo_truly_lcm_drv =
 	.suspend        = lcm_suspend,
 	.resume         = lcm_resume,
 	.compare_id    = lcm_compare_id,
-//	.esd_check = lcm_esd_check,
-//	.esd_recover = lcm_esd_recover,
+	.esd_check = lcm_esd_check,
+	.esd_recover = lcm_esd_recover,
     #if (LCM_DSI_CMD_MODE)
     .update         = lcm_update,
     #endif
