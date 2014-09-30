@@ -31,8 +31,11 @@ modules.builtin
 .gitignore
 !.gitignore
 !.mailmap
+.mailmap
 manual
 out/
 prebuilts/
 mediatek/misc/
+mediatek/kernel/trace32
+
 

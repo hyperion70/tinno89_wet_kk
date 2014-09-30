@@ -39,18 +39,6 @@ typedef signed int      MINT32;
 #define KD_TORCH_FLASHLIGHT_ID      3
 #define KD_CONSTANT_FLASHLIGHT_ID   4
 
-
-typedef enum
-{
-    e_CAMERA_NONE_SENSOR=0,
-    e_CAMERA_MAIN_SENSOR     = 1,
-    e_CAMERA_SUB_SENSOR      = 2,
-    e_CAMERA_MAIN_2_SENSOR   = 8,
-    //for backward compatible
-    e_CAMERA_MAIN_SECOND_SENSOR = 8,
-    //DUAL_CAMERA_SUB_2_SENSOR   = 16,
-    e_CAMERA_SENSOR_MAX
-} eFlashSensorId;
 typedef struct
 {
     int (* flashlight_open)(void *pArg);
@@ -59,7 +47,8 @@ typedef struct
 } FLASHLIGHT_FUNCTION_STRUCT, *PFLASHLIGHT_FUNCTION_STRUCT;
 
 typedef struct
-{	
+{
+	MUINT32 flashlightId;
     MUINT32 (* flashlightInit)(PFLASHLIGHT_FUNCTION_STRUCT *pfFunc);
 } KD_FLASHLIGHT_INIT_FUNCTION_STRUCT, *pKD_FLASHLIGHT_INIT_FUNCTION_STRUCT;
 
@@ -115,34 +104,8 @@ typedef enum
 #define FLASH_IOC_SET_STEP 		        _IOR(FLASHLIGHT_MAGIC, 105, int)
 #define FLASH_IOC_SET_DUTY				_IOR(FLASHLIGHT_MAGIC, 110, int)
 #define FLASH_IOC_SET_ONOFF           	_IOR(FLASHLIGHT_MAGIC, 115, int)
-#define FLASH_IOC_UNINIT           	_IOR(FLASHLIGHT_MAGIC, 120, int)
-
-#define FLASH_IOC_PRE_ON           	_IOR(FLASHLIGHT_MAGIC, 125, int)
-#define FLASH_IOC_GET_PRE_ON_TIME_MS           	_IOR(FLASHLIGHT_MAGIC, 130, int)
-
-#define FLASH_IOC_SET_REG_ADR  _IOR(FLASHLIGHT_MAGIC, 135, int)
-#define FLASH_IOC_SET_REG_VAL  _IOR(FLASHLIGHT_MAGIC, 140, int)
-#define FLASH_IOC_SET_REG  _IOR(FLASHLIGHT_MAGIC, 145, int)
-#define FLASH_IOC_GET_REG  _IOR(FLASHLIGHT_MAGIC, 150, int)
 
 
-#define FLASH_IOC_GET_MAIN_PART_ID           	_IOR(FLASHLIGHT_MAGIC, 155, int)
-#define FLASH_IOC_GET_SUB_PART_ID           	_IOR(FLASHLIGHT_MAGIC, 160, int)
-#define FLASH_IOC_GET_MAIN2_PART_ID           	_IOR(FLASHLIGHT_MAGIC, 165, int)
-
-
-#define FLASH_IOC_HAS_LOW_POWER_DETECT _IOR(FLASHLIGHT_MAGIC, 170, int)
-#define FLASH_IOC_LOW_POWER_DETECT_START _IOR(FLASHLIGHT_MAGIC, 175, int)
-#define FLASH_IOC_LOW_POWER_DETECT_END _IOR(FLASHLIGHT_MAGIC, 180, int)
-
-
-
-typedef struct
-{
-    int sensorDev;
-    int arg;
-
-}StrobeDrvArg;
 
 
 #endif

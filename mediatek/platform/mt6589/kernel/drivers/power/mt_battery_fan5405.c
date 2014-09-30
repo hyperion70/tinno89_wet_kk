@@ -73,19 +73,7 @@
 
 int Enable_BATDRV_LOG = 2;
 
-#ifdef TINNO_FAN5405_HIGH_VBATT	    		
-int g_low_power_ready = 1;	//Ivan 0 to 1
-//Ivan
-int g_ChargingCycle = 0;
-int g_CCMode = 0;
-#else
 int g_low_power_ready = 0;
-#endif
-
-#ifdef TINNO_2_STAGE_CHANGING_FOR_INDIA
-int g_ChargingStage = 0;
-int g_StageCounter = 0;
-#endif
 
 void pchr_turn_off_charging_fan5405 (void);
 void pchr_turn_on_charging_fan5405 (void);
@@ -175,9 +163,6 @@ extern CHARGER_TYPE mt_charger_type_detection(void);
 extern int PMIC_IMM_GetOneChannelValue(int dwChannel, int deCount, int trimd);
 extern kal_uint32 upmu_get_reg_value(kal_uint32 reg);
 extern void upmu_set_reg_value(kal_uint32 reg, kal_uint32 reg_val);
-//Ivan
-extern int fan5405_read_byte(kal_uint8 cmd, kal_uint8 *returnData);
-
 
 extern kal_int32 gFG_current;
 extern kal_int32 gFG_voltage;
@@ -475,7 +460,7 @@ int g_chr_event = 0;
 int bat_volt_cp_flag = 0;
 int bat_volt_check_point = 0;
 int g_wake_up_bat=0;
-
+int g_smartbook_update = 0;
 void wake_up_bat (void)
 {
     if (Enable_BATDRV_LOG == 1) {
@@ -514,6 +499,10 @@ int g_Support_USBIF = 1;
 #define ADC_CHANNEL_READ _IOW('k', 4, int)
 #define BAT_STATUS_READ _IOW('k', 5, int)
 #define Set_Charger_Current _IOW('k', 6, int)
+//add bing for meta-----------------------------------------
+#define Get_META_BAT_VOL _IOW('k', 10, int) 
+#define Get_META_BAT_SOC _IOW('k', 11, int) 
+//add bing for meta-----------------------------------------
 
 static struct class *adc_cali_class = NULL;
 static int adc_cali_major = 0;
@@ -531,6 +520,7 @@ int battery_in_data[1] = {0};
 int battery_out_data[1] = {0};    
 
 int charging_level_data[1] = {0};
+int g_bat_init_flag=0;
 
 kal_bool g_ADC_Cali = KAL_FALSE;
 kal_bool g_ftm_battery_flag = KAL_FALSE;
@@ -582,6 +572,11 @@ int init_proc_log(void)
 ////////////////////////////////////////////////////////////////////////////////
 // FOR ANDROID BATTERY SERVICE
 ////////////////////////////////////////////////////////////////////////////////
+/* Dual battery */
+int g_status_2nd = POWER_SUPPLY_STATUS_NOT_CHARGING;
+int g_capacity_2nd = 50;
+int g_present_2nd = 0;
+
 struct mt6320_ac_data {
     struct power_supply psy;
     int AC_ONLINE;    
@@ -610,6 +605,10 @@ struct mt6320_battery_data {
     int BAT_BatterySenseVoltage;
     int BAT_ISenseVoltage;
     int BAT_ChargerVoltage;
+    /* Dual battery */
+    int status_2nd;
+    int capacity_2nd;
+    int present_2nd;
 };
 
 static enum power_supply_property mt6320_ac_props[] = {
@@ -637,6 +636,10 @@ static enum power_supply_property mt6320_battery_props[] = {
     POWER_SUPPLY_PROP_BatterySenseVoltage,
     POWER_SUPPLY_PROP_ISenseVoltage,
     POWER_SUPPLY_PROP_ChargerVoltage,
+    /* Dual battery */
+    POWER_SUPPLY_PROP_status_2nd,
+    POWER_SUPPLY_PROP_capacity_2nd,
+    POWER_SUPPLY_PROP_present_2nd,
 };
 
 static int mt6320_ac_get_property(struct power_supply *psy,
@@ -731,6 +734,16 @@ static int mt6320_battery_get_property(struct power_supply *psy,
     case POWER_SUPPLY_PROP_ChargerVoltage:
         val->intval = data->BAT_ChargerVoltage;
         break;
+    /* Dual battery */
+    case POWER_SUPPLY_PROP_status_2nd :
+        val->intval = data->status_2nd;
+        break;
+    case POWER_SUPPLY_PROP_capacity_2nd :
+        val->intval = data->capacity_2nd;
+        break;
+    case POWER_SUPPLY_PROP_present_2nd :
+        val->intval = data->present_2nd;
+        break;
 
     default:
         ret = -EINVAL;
@@ -783,6 +796,10 @@ static struct mt6320_battery_data mt6320_battery_main = {
     .BAT_CAPACITY = 100,
     .BAT_batt_vol = 4200,
     .BAT_batt_temp = 22,
+    /* Dual battery */
+    .status_2nd = POWER_SUPPLY_STATUS_NOT_CHARGING,
+    .capacity_2nd = 50,
+    .present_2nd = 0,
 #else
     .BAT_STATUS = POWER_SUPPLY_STATUS_NOT_CHARGING,    
     .BAT_HEALTH = POWER_SUPPLY_HEALTH_GOOD,
@@ -791,6 +808,10 @@ static struct mt6320_battery_data mt6320_battery_main = {
     .BAT_CAPACITY = 50,
     .BAT_batt_vol = 0,
     .BAT_batt_temp = 0,
+    /* Dual battery */
+    .status_2nd = POWER_SUPPLY_STATUS_NOT_CHARGING,
+    .capacity_2nd = 50,
+    .present_2nd = 0,
 #endif
 };
 
@@ -1166,6 +1187,11 @@ static void mt6320_battery_update(struct mt6320_battery_data *bat_data)
     bat_data->BAT_ISenseVoltage=g_BAT_ISenseVoltage;
     bat_data->BAT_ChargerVoltage=g_BAT_ChargerVoltage;
 
+    /* Dual battery */
+    bat_data->status_2nd = g_status_2nd;
+    bat_data->capacity_2nd = g_capacity_2nd;
+    bat_data->present_2nd = g_present_2nd;
+	xlog_printk(ANDROID_LOG_INFO, "Power/Battery", "status_2nd = %d, capacity_2nd = %d, present_2nd = %d\n", bat_data->status_2nd, bat_data->capacity_2nd, bat_data->present_2nd);
 	if (gFG_booting_counter_I_FLAG == 2) {
 		if (bat_volt_check_point == 1) {
 			set_rtc_spare_fg_value(0);
@@ -1189,6 +1215,33 @@ static void mt6320_battery_update_power_down(struct mt6320_battery_data *bat_dat
 }
 #endif
 
+
+void update_battery_2nd_info(int status_2nd, int capacity_2nd, int present_2nd)
+{
+    #if defined(CONFIG_POWER_VERIFY)
+    xlog_printk(ANDROID_LOG_DEBUG, "Power/Battery", "[update_battery_2nd_info] no support\n");
+    #else
+    g_status_2nd = status_2nd;
+    g_capacity_2nd = capacity_2nd;
+    g_present_2nd = present_2nd;
+    xlog_printk(ANDROID_LOG_INFO, "Power/Battery", "[update_battery_2nd_info] get status_2nd=%d,capacity_2nd=%d,present_2nd=%d\n",
+        status_2nd, capacity_2nd, present_2nd);
+
+    wake_up_bat();
+    g_smartbook_update = 1;
+    #endif
+}
+
+void BAT_UpdateChargerStatus(void)
+{
+#if !defined(CONFIG_POWER_EXT)	
+	if(g_bat_init_flag == 1) {
+		mt6320_ac_update(&mt6320_ac_main);
+		mt6320_usb_update(&mt6320_usb_main);
+	}
+#endif	
+}
+
 #if defined(CONFIG_POWER_VERIFY)
 
 void BATTERY_SetUSBState(int usb_state_value)
@@ -1196,8 +1249,6 @@ void BATTERY_SetUSBState(int usb_state_value)
     xlog_printk(ANDROID_LOG_DEBUG, "Power/Battery", "[BATTERY_SetUSBState] in FPGA/EVB, no service\r\n");
 }
 EXPORT_SYMBOL(BATTERY_SetUSBState);
-
-int g_bat_init_flag=0;
 
 static int mt6320_battery_probe(struct platform_device *dev)    
 {
@@ -1392,54 +1443,26 @@ BATT_TEMPERATURE Batt_Temperature_Table[] = {
     };
 #endif
 
-#if (BAT_NTC_TINNO_10 == 1)    
-    BATT_TEMPERATURE Batt_Temperature_Table[] = {
-        {-30,124607},
-        {-25,94918},
-        {-20,73035},
-        {-15,56734},
-        {-10,44468},
-        { -5,35150},
-        {  0,28008},
-        {  5,22486},
-        { 10,18182},
-        { 15,14803},
-        { 20,12129},
-        { 25,10000},
-        { 30,8292},
-        { 35,6914},
-        { 40,5795},
-        { 45,4872},
-        { 50,4101},
-        { 55,3467},
-        { 60,2936},
-        { 65,2494},
-        { 70,2130},
-        { 75,1817},
-        { 80,1562}
-    };    
-#endif
-    
     if(Res>=Batt_Temperature_Table[0].TemperatureR)
     {
         #if 0
         xlog_printk(ANDROID_LOG_DEBUG, "Power/Battery", "Res>=%d\n", Batt_Temperature_Table[0].TemperatureR);
         #endif
-        TBatt_Value = -30;
+        TBatt_Value = -20;
     }
-    else if(Res<=Batt_Temperature_Table[22].TemperatureR)
+    else if(Res<=Batt_Temperature_Table[16].TemperatureR)
     {
         #if 0
         xlog_printk(ANDROID_LOG_DEBUG, "Power/Battery", "Res<=%d\n", Batt_Temperature_Table[16].TemperatureR);
         #endif
-        TBatt_Value = 80;
+        TBatt_Value = 60;
     }
     else
     {
         RES1=Batt_Temperature_Table[0].TemperatureR;
         TMP1=Batt_Temperature_Table[0].BatteryTemp;
 
-        for(i=0;i<=22;i++)
+        for(i=0;i<=16;i++)
         {
             if(Res>=Batt_Temperature_Table[i].TemperatureR)
             {
@@ -1579,15 +1602,10 @@ void select_charging_curret_bcct(void)
     else if( (BMT_status.charger_type == STANDARD_CHARGER) ||
              (BMT_status.charger_type == CHARGING_HOST) )
     {
-#ifdef TINNO_FAN5405_HIGH_VBATT	
-        fan5405_config_interface_liao(0x06,0x74); //Ivan set ISAFE
-        fan5405_config_interface_liao(0x01,0xF8);
-        fan5405_config_interface_liao(0x02,0x8E);
-#else
         fan5405_config_interface_liao(0x06,0x70); //set ISAFE
         fan5405_config_interface_liao(0x01,0xF8);
         fan5405_config_interface_liao(0x02,0x8E);
-#endif	
+        
         //---------------------------------------------------
         //set IOCHARGE
         if(g_bcct_value < 550)        pchr_turn_off_charging_fan5405();
@@ -1681,10 +1699,6 @@ void ChargerHwInit_fan5405(void)
 
     if(temp_init_flag==0)
     {
-//Ivan removed
-#ifdef TINNO_FAN5405_HIGH_VBATT	
-        fan5405_config_interface_liao(0x06,0x74);	//Ivan Vsafe = V4.34V
-#else
         if(g_enable_high_vbat_spec == 1)
         {
             if(g_pmic_cid == 0x1020)
@@ -1694,20 +1708,10 @@ void ChargerHwInit_fan5405(void)
         }
         else
             fan5405_config_interface_liao(0x06,0x70);
-#endif
-
-	
+        
         fan5405_config_interface_liao(0x00,0x80);
-        fan5405_config_interface_liao(0x01,0xb8);		//Ivan change from 0xB9 to 0xB8 ???
-//Ivan removed
-#ifdef TINNO_FAN5405_HIGH_VBATT	
-        fan5405_config_interface_liao(0x02,0x8E);       	//Ivan
+        fan5405_config_interface_liao(0x01,0xb9);
 
-	if (g_CCMode)
-	    fan5405_set_oreg(0x23);		//Ivan decrease the Vreg to 4.2V
-	else
-	    fan5405_set_oreg(TINNO_FAN5405_VOREG);		//Ivan 4.22V
-#else
         if(g_enable_high_vbat_spec == 1)
         {
             if(g_pmic_cid == 0x1020)
@@ -1717,7 +1721,7 @@ void ChargerHwInit_fan5405(void)
         }
         else
             fan5405_config_interface_liao(0x02,0x8e);
-#endif
+        
         fan5405_config_interface_liao(0x05,0x04);
         
         if(g_low_power_ready == 1)
@@ -1782,9 +1786,7 @@ void fan5405_set_ac_current(void)
     //3). 0x02h->0x8Eh
     //4). 0x04h->0x19h
     //5). 0x05h->0x04h
-#ifdef TINNO_FAN5405_HIGH_VBATT	
-    fan5405_config_interface_liao(0x06,0x74); //Ivan set ISAFE	Isafe = 1250mA; Vsafe = 4.34V
-#else
+
     if(g_enable_high_vbat_spec == 1)
     {
         if(g_pmic_cid == 0x1020)
@@ -1794,8 +1796,7 @@ void fan5405_set_ac_current(void)
     }
     else
         fan5405_config_interface_liao(0x06,0x70); //set ISAFE
-#endif
-	
+    
 #if defined(MTK_JEITA_STANDARD_SUPPORT)  
      if(g_temp_status == TEMP_NEG_10_TO_POS_0)
      {          
@@ -1834,13 +1835,7 @@ void fan5405_set_ac_current(void)
      }
 #else    
     fan5405_config_interface_liao(0x01,0xF8);
-#ifdef TINNO_FAN5405_HIGH_VBATT	
-        fan5405_config_interface_liao(0x02,0x9A);       	//Ivan change VOREG to 4.26 //0x9A
-	if (g_CCMode)
-	    fan5405_set_oreg(0x23);		//Ivan decrease the Vreg to 4.2V
-	else
-	    fan5405_set_oreg(TINNO_FAN5405_VOREG);		//Ivan 4.26V		
-#else
+
     if(g_enable_high_vbat_spec == 1)
     {
         if(g_pmic_cid == 0x1020)
@@ -1850,7 +1845,6 @@ void fan5405_set_ac_current(void)
     }
     else
         fan5405_config_interface_liao(0x02,0x8E);
-#endif
 
     #if defined(FAN5405_AC_CHARGING_CURRENT_1250)
         reg_set_value=0x70;
@@ -1878,21 +1872,7 @@ void fan5405_set_ac_current(void)
         #endif
     #endif
     if(g_low_power_ready == 1)
-//Ivan	
-#ifdef TINNO_FAN5405_HIGH_VBATT	
-    {
-        reg_set_value += 0x0A;		//Ivan 0x09 = 133mA; 0x08 = 60mA; 0x0A = 150mA
-#ifdef TINNO_2_STAGE_CHANGING_FOR_INDIA
-	if (g_ChargingStage == 1)
-	{
-	    reg_set_value &= 0xF0;
-	    reg_set_value += 0x08;		//Ivan 0x09 = 133mA; 0x08 = 60mA; 0x0A = 150mA
-	}
-#endif
-    }   
-#else
         reg_set_value += 0x09;
-#endif
     else
         reg_set_value += 0x0B;
     fan5405_config_interface_liao(0x04,reg_set_value);
@@ -1936,9 +1916,7 @@ void select_charging_curret_fan5405(void)
     {    
         if ( BMT_status.charger_type == STANDARD_HOST ) 
         {
-#ifdef TINNO_FAN5405_HIGH_VBATT	    		
-	    fan5405_set_oreg(0x23);		//Ivan decrease the Vreg to 4.2V
-#endif		
+
             if (g_Support_USBIF == 1)
             {
                 if (g_usb_state == USB_SUSPEND)
@@ -2055,11 +2033,7 @@ void select_charging_curret_fan5405(void)
                 }
             }
 #else        
-            fan5405_set_ac_current(); //LINE<20120111><charger current>wangyanhui
-#ifdef TINNO_FAN5405_HIGH_VBATT	    		
-	    fan5405_set_oreg(0x23);		//Ivan decrease the Vreg to 4.2V
-#endif
-//            fan5405_config_interface_liao(0x01,0x78);
+            fan5405_config_interface_liao(0x01,0x78);
 #endif            
             if (Enable_BATDRV_LOG == 1) {
                 printk("[BATTERY:fan5405] BMT_status.charger_type == NONSTANDARD_CHARGER \r\n");    
@@ -2138,8 +2112,6 @@ void pchr_turn_on_charging_fan5405(void)
 
 void pchr_turn_off_charging_fan5405 (void)
 {
-    temp_init_flag = 0;			//modify by wangyanhui 20130220
-
 #if defined(CONFIG_USB_MTK_HDRC_HCD)
     if(mt_usb_is_device())
     {
@@ -2153,7 +2125,7 @@ void pchr_turn_off_charging_fan5405 (void)
             printk("[BATTERY] pchr_turn_off_charging_fan5405 !\r\n");
         }
 
-        fan5405_config_interface_liao(0x01,0x78);      //0xbc->ox78 for CE=0 according to BQ24158 IC design notes and pre-charging could be limited to 500mA
+        fan5405_config_interface_liao(0x01,0xbc);    
         
 #if defined(CONFIG_USB_MTK_HDRC_HCD)
     }
@@ -2777,9 +2749,6 @@ int BAT_CheckBatteryStatus_fan5405(void)
         return PMU_STATUS_FAIL;
     }
 #else    
-
-    if( upmu_is_chr_det() == KAL_TRUE)
-    {
     #if (BAT_TEMP_PROTECT_ENABLE == 1)
     if ((BMT_status.temperature < MIN_CHARGE_TEMPERATURE) || 
         (BMT_status.temperature == ERR_CHARGE_TEMPERATURE))
@@ -2794,7 +2763,6 @@ int BAT_CheckBatteryStatus_fan5405(void)
         printk(  "[BATTERY] Battery Over Temperature !!\n\r");                
         BMT_status.bat_charging_state = CHR_ERROR;
         return PMU_STATUS_FAIL;       
-    }
     }
 #endif
 
@@ -2842,11 +2810,6 @@ int BAT_CheckBatteryStatus_fan5405(void)
             //FGADC_Reset_SW_Parameter();
         }        
     }
-//Ivan added recovery    
-#ifdef TINNO_BATTERY_FAIL_RECOVERY
-    if (BMT_status.temperature < MAX_RECHARGE_TEMPERATURE && BMT_status.temperature > MIN_RECHARGE_TEMPERATURE)
-	BMT_status.bat_charging_state = CHR_PRE;        
-#endif
     return PMU_STATUS_OK;
 }
 
@@ -2878,9 +2841,7 @@ PMU_STATUS BAT_BatteryStatusFailAction(void)
 
     /*  Disable charger */
     pchr_turn_off_charging_fan5405();
-#ifdef TINNO_FAN5405_HIGH_VBATT	    			    
-    g_ChargingCycle = 0;
-#endif
+
     return PMU_STATUS_OK;
 }
 
@@ -2996,7 +2957,9 @@ void mt_battery_notify_check(void)
 #endif
 
 #if defined(BATTERY_NOTIFY_CASE_0002)
-        if( (BMT_status.temperature >= MAX_CHARGE_TEMPERATURE) /* || (BMT_status.temperature < MIN_CHARGE_TEMPERATURE) */  )
+        if( (BMT_status.temperature >= MAX_CHARGE_TEMPERATURE) || 
+            (BMT_status.temperature < MIN_CHARGE_TEMPERATURE)
+            )
         {
             g_BatteryNotifyCode |= 0x0002;
             xlog_printk(ANDROID_LOG_INFO, "Power/Battery", "[BATTERY] bat_temp(%d) out of range\n", BMT_status.temperature);
@@ -3005,13 +2968,6 @@ void mt_battery_notify_check(void)
         {
             g_BatteryNotifyCode &= ~(0x0002);
         }
-//Ivan added <<
-	if(BMT_status.temperature < MIN_CHARGE_TEMPERATURE)
-	{
-	    g_BatteryNotifyCode |= 0x0020;
-	    printk("[BATTERY] bat_temp(%d) < MIN_CHARGE_TEMPERATURE'C\n", BMT_status.temperature);
-	}
-//Ivan >>        
         if (Enable_BATDRV_LOG == 1) {
             xlog_printk(ANDROID_LOG_INFO, "Power/Battery", "[BATTERY] BATTERY_NOTIFY_CASE_0002 (%x)\n", 
                 g_BatteryNotifyCode);
@@ -3019,24 +2975,13 @@ void mt_battery_notify_check(void)
 #endif
 
 #if defined(BATTERY_NOTIFY_CASE_0003)
-        if( (BMT_status.ICharging > 1300) &&	//Ivan change to 1300
+        if( (BMT_status.ICharging > 1000) &&
             (BMT_status.total_charging_time > 300)
             )
         //if(BMT_status.ICharging > 200) //test
         {
-	    
-//Ivan added
-            count = 0;
-            for (index = 0; index < BATTERY_AVERAGE_SIZE; index++)
-            {
-                if (batteryCurrentBuffer[index] > 1300)
-                count++;
-            }
-            if (count > (BATTERY_AVERAGE_SIZE/2))
-            {
-                g_BatteryNotifyCode |= 0x0004;
-                xlog_printk(ANDROID_LOG_INFO, "Power/Battery", "[BATTERY] I_charging(%ld) > 1000mA\n", BMT_status.ICharging);
-            }
+            g_BatteryNotifyCode |= 0x0004;
+            xlog_printk(ANDROID_LOG_INFO, "Power/Battery", "[BATTERY] I_charging(%ld) > 1000mA\n", BMT_status.ICharging);
         }
         else
         {
@@ -3122,6 +3067,8 @@ void mt_battery_notify_check(void)
     }
 }
 
+extern int can_check_battery_flag;
+
 void check_battery_exist(void)
 {
 #if defined(CONFIG_DIS_CHECK_BATTERY)
@@ -3130,34 +3077,27 @@ void check_battery_exist(void)
     }
 #else
     kal_uint32 baton_count = 0;
-
-    baton_count += upmu_get_rgs_baton_undet();
-    baton_count += upmu_get_rgs_baton_undet();
-    baton_count += upmu_get_rgs_baton_undet();
-        
-    if( baton_count >= 3)
+    if (can_check_battery_flag)
     {
-        if( (get_boot_mode()==META_BOOT) || (get_boot_mode()==ADVMETA_BOOT) || (get_boot_mode()==ATE_FACTORY_BOOT) )
-        {
-            printk("[BATTERY] boot mode = %d, bypass battery check\n", get_boot_mode());
-        }
-        else
-        {
-            printk("[BATTERY] Battery is not exist, power off FAN5405 and system (%d)\n", baton_count);
-            pchr_turn_off_charging_fan5405();
-            arch_reset(0,NULL);      
-        }
-    }    
+	    baton_count += upmu_get_rgs_baton_undet();
+	    baton_count += upmu_get_rgs_baton_undet();
+	    baton_count += upmu_get_rgs_baton_undet();
+	        
+	    if( baton_count >= 3)
+	    {
+	        if( (get_boot_mode()==META_BOOT) || (get_boot_mode()==ADVMETA_BOOT) || (get_boot_mode()==ATE_FACTORY_BOOT) )
+	        {
+	            printk("[BATTERY] boot mode = %d, bypass battery check\n", get_boot_mode());
+	        }
+	        else
+	        {
+	            printk("[BATTERY] Battery is not exist, power off FAN5405 and system (%d)\n", baton_count);
+	            pchr_turn_off_charging_fan5405();
+	            arch_reset(0,NULL);      
+	        }
+	    }
+	  }    
 #endif
-}
-void BAT_UpdateChargerStatus(void)
-{
-#if !defined(CONFIG_POWER_EXT)	
-	if(gFG_booting_counter_I_FLAG == 2) {
-		mt6320_ac_update(&mt6320_ac_main);
-		mt6320_usb_update(&mt6320_usb_main);
-	}
-#endif	
 }
 void BAT_thread_fan5405(void)
 {    
@@ -3165,23 +3105,7 @@ void BAT_thread_fan5405(void)
     int i=0;
     int BAT_status = 0;
     //kal_uint32 tmp32;	
-    int ret_val=0;
-#if !defined(MTK_KERNEL_POWER_OFF_CHARGING)	
 
-    if(boot_check_once==1)
-    {
-        if( upmu_is_chr_det() == KAL_TRUE )
-        {
-            ret_val=get_bat_sense_volt(1);
-            if(ret_val > 4110)
-            {
-                g_bat_full_user_view = KAL_TRUE;                
-            }
-            printk("[BATTERY] ret_val=%d, g_bat_full_user_view=%d\n", ret_val, g_bat_full_user_view);
-        }
-        boot_check_once=0;
-    }
-#endif
     if (Enable_BATDRV_LOG == 1) {
         
 #if defined(MTK_JEITA_STANDARD_SUPPORT)        
@@ -3209,7 +3133,7 @@ void BAT_thread_fan5405(void)
 #if defined(MTK_JEITA_STANDARD_SUPPORT)        
         //ignore default rule        
 #else    
-        if(BMT_status.temperature >= 80)		//Ivan change from 60 to 80
+        if(BMT_status.temperature >= 60)
         {
 #if defined(CONFIG_POWER_EXT)
             xlog_printk(ANDROID_LOG_DEBUG, "Power/Battery", "[BATTERY] CONFIG_POWER_EXT, no update mt6329_battery_update_power_down.\n");
@@ -3238,15 +3162,7 @@ void BAT_thread_fan5405(void)
         {
             CHR_Type_num = mt_charger_type_detection();                     
             BMT_status.charger_type = CHR_Type_num;
-#ifdef TINNO_FAN5405_HIGH_VBATT	    			    
-            g_ChargingCycle = 0;
-	    g_CCMode = 0;
-#endif
-#ifdef TINNO_2_STAGE_CHANGING_FOR_INDIA
-	    g_ChargingStage = 0;
-	    g_StageCounter = 0;
-#endif
-	    
+            
             if( (CHR_Type_num==STANDARD_HOST) || (CHR_Type_num==CHARGING_HOST) )
             {
                 mt_usb_connect();
@@ -3256,13 +3172,7 @@ void BAT_thread_fan5405(void)
     else 
     {   
         wake_unlock(&battery_suspend_lock);
-#ifdef TINNO_FAN5405_HIGH_VBATT	    			    	
-	g_CCMode = 0;
-#endif
-#ifdef TINNO_2_STAGE_CHANGING_FOR_INDIA
-	    g_ChargingStage = 0;
-	    g_StageCounter = 0;
-#endif	
+    
         BMT_status.charger_type = CHARGER_UNKNOWN;
         BMT_status.bat_full = KAL_FALSE;
         /*Use no gas gauge*/
@@ -3373,7 +3283,7 @@ void BAT_thread_fan5405(void)
 			{			
 				mt6320_ac_update(&mt6320_ac_main);
 				mt6320_usb_update(&mt6320_usb_main);
-//Ivan				mt6320_battery_update(&mt6320_battery_main);  
+				mt6320_battery_update(&mt6320_battery_main);  
 			}
 			xlog_printk(ANDROID_LOG_INFO, "Power/Battery", "[BATTERY] gFG_booting_counter_I_FLAG is 1, soc=%d\n", fgauge_read_capacity_by_v());
 		}
@@ -3384,12 +3294,8 @@ void BAT_thread_fan5405(void)
 		{
 			if( upmu_is_chr_det() == KAL_TRUE && BMT_status.SOC == 100 && get_rtc_spare_fg_value() == 100)
 			{
-				ret_val=get_bat_sense_volt(1);
-				if(ret_val > 4110)
-				{
-					g_bat_full_user_view = KAL_TRUE;                
-				}
-				printk("[BATTERY] ret_val=%d, g_bat_full_user_view=%d\n", ret_val, g_bat_full_user_view);
+				g_bat_full_user_view = KAL_TRUE;                
+				printk("[BATTERY] g_bat_full_user_view=%d\n", g_bat_full_user_view);
 			}
 			boot_check_once=0;
 		}
@@ -3481,28 +3387,11 @@ void BAT_thread_fan5405(void)
             }
         }
 
-//Ivan
         fan5405_status = fan5405_get_chip_status();
-	
+        
         /* check battery full */
         if( fan5405_status == 0x2 )
         {
-
-#ifdef TINNO_2_STAGE_CHANGING_FOR_INDIA
-	    if (g_ChargingStage == 0)
-	    {
-                BMT_status.bat_charging_state = CHR_BATFULL;
-		BMT_status.bat_full = KAL_TRUE;    
-		g_bat_full_user_view = KAL_TRUE;
-		g_HW_Charging_Done = 0;		
-		g_ChargingStage = 1;
-		g_StageCounter = 0;
-		pchr_turn_off_charging_fan5405();		
-		pchr_turn_on_charging_fan5405();
-                return;		
-	    }
-#endif	    
-	    
             if(BMT_status.bat_vol >= 3900)
             {
                 BMT_status.bat_charging_state = CHR_BATFULL;
@@ -3513,10 +3402,6 @@ void BAT_thread_fan5405(void)
                 BMT_status.TOPOFF_charging_time = 0;
                 BMT_status.POSTFULL_charging_time = 0;    
                 g_HW_Charging_Done = 1;            
-//Ivan
-#ifdef TINNO_2_STAGE_CHANGING_FOR_INDIA		
-		g_ChargingStage = 2;			//For recharge, we use 150mA terminate current...
-#endif
                 //pchr_turn_off_charging_fan5405();
                 printk("[BATTERY:fan5405] Battery real full and disable charging (%d) \n", fan5405_status); 
                 return;
@@ -3528,57 +3413,9 @@ void BAT_thread_fan5405(void)
             }
         }
         
-//Ivan
-#ifdef TINNO_2_STAGE_CHANGING_FOR_INDIA		        
-        if (g_ChargingStage == 1)
-	{
-	    g_StageCounter++;
-	    if (g_StageCounter > 210)		//35 minutes
-	    {
-		g_ChargingStage = 2;			//To avoid non stop charging...
-	    }
-	}
-	    
-#endif
-	
         /* Charging flow begin */
         BMT_status.total_charging_time += BAT_TASK_PERIOD;
-//Ivan    
-	if(gFG_booting_counter_I_FLAG >= 2)
-	    pchr_turn_on_charging_fan5405();       
-#ifdef TINNO_FAN5405_HIGH_VBATT	    				
-//Ivan Added	
-	g_ChargingCycle++;
-//	printk("[BATTERY:fan5405] Ivan g_ChargingCycle = %d; charger_type = %d; \n",g_ChargingCycle,BMT_status.charger_type);		
-//	printk("[BATTERY:fan5405] Ivan SOC = %d; BMT_status.bat_vol = %d; \n",BMT_status.SOC,BMT_status.bat_vol);		
-	
-//	if ( BMT_status.charger_type == STANDARD_CHARGER  || BMT_status.charger_type == CHARGING_HOST)
-	
-	if (upmu_is_chr_det() == KAL_TRUE)
-	{
-	    if (((BMT_status.SOC >= 90) && (BMT_status.bat_vol > 4195)) || (BMT_status.bat_vol > 4240))
-	    {
-		    g_CCMode = 1;
-	    }
-	}
-
-	    
-#endif	
-/*	
-        printk("[BATTERY:fan5405] Ivan CON0 (%x) \n", read_reg); 
-	fan5405_read_byte(1,&read_reg);
-        printk("[BATTERY:fan5405] Ivan CON1 (%x) \n", read_reg); 
-	fan5405_read_byte(2,&read_reg);
-        printk("[BATTERY:fan5405] Ivan CON2 (%x) \n", read_reg); 
-	fan5405_read_byte(3,&read_reg);
-        printk("[BATTERY:fan5405] Ivan CON3 (%x) \n", read_reg); 
-	fan5405_read_byte(4,&read_reg);
-        printk("[BATTERY:fan5405] Ivan CON4 (%x) \n", read_reg); 
-	fan5405_read_byte(5,&read_reg);
-        printk("[BATTERY:fan5405] Ivan CON5 (%x) \n", read_reg); 
-	fan5405_read_byte(6,&read_reg);
-        printk("[BATTERY:fan5405] Ivan CON6 (%x) \n", read_reg); 
-*/
+        pchr_turn_on_charging_fan5405();        
         if (Enable_BATDRV_LOG >= 1) {
             printk("[BATTERY:fan5405] Total charging timer=%ld \n", 
                 BMT_status.total_charging_time);    
@@ -3622,11 +3459,6 @@ int bat_thread_kthread(void *x)
             if(g_FG_init == 1)
             {
                 g_FG_init=2;
-		// add by yangyan
-		printk( "[bat_thread_kthread]   turn off charging begin----add by yangyan in init");
-		   pchr_turn_off_charging_fan5405();
-		  printk("[bat_thread_kthread]  turn off charging  end ----add by yangyan in init");
-		//add over
                 FGADC_thread_kthread();
                 //sync FG timer
                 FGADC_thread_kthread();
@@ -3664,9 +3496,10 @@ int bat_thread_kthread(void *x)
         
         bat_thread_timeout=0;
 
-        if( g_wake_up_bat==1 )
+        if( g_wake_up_bat==1 && g_smartbook_update != 1)
         {
             g_wake_up_bat=0;
+            g_smartbook_update = 0;
             g_Calibration_FG = 0;
             FGADC_Reset_SW_Parameter();
             
@@ -3841,6 +3674,22 @@ static long adc_cali_ioctl(struct file *file, unsigned int cmd, unsigned long ar
             xlog_printk(ANDROID_LOG_DEBUG, "Power/Battery", "**** unlocked_ioctl : set_Charger_Current:%d\n", charging_level_data[0]);
             break;
           
+		//add bing for meta-------------------------------
+		case Get_META_BAT_VOL:
+			user_data_addr = (int *)arg;
+            ret = copy_from_user(adc_in_data, user_data_addr, 8);
+			adc_out_data[0] = BMT_status.bat_vol;
+			ret = copy_to_user(user_data_addr, adc_out_data, 8); 
+            xlog_printk(ANDROID_LOG_DEBUG, "Power/Battery", "**** unlocked_ioctl : BAT_VOL:%d\n", adc_out_data[0]);   
+			break;
+		case Get_META_BAT_SOC:
+			user_data_addr = (int *)arg;
+            ret = copy_from_user(adc_in_data, user_data_addr, 8);
+			adc_out_data[0] = bat_volt_check_point;
+			ret = copy_to_user(user_data_addr, adc_out_data, 8); 
+            xlog_printk(ANDROID_LOG_DEBUG, "Power/Battery", "**** unlocked_ioctl : SOC:%d\n", adc_out_data[0]);   
+			break;
+		//add bing for meta-------------------------------
         default:
             g_ADC_Cali = KAL_FALSE;
             break;
@@ -4546,14 +4395,20 @@ static struct hrtimer battery_kthread_timer;
 static struct task_struct *battery_kthread_hrtimer_task = NULL;
 static int battery_kthread_flag = 0;
 static DECLARE_WAIT_QUEUE_HEAD(battery_kthread_waiter);
-
+static u8 g_bat_thread_count = 0;
 int battery_kthread_handler(void *unused)
 {
     ktime_t ktime;
 
     do
     {
-        ktime = ktime_set(10, 0);	// 10s, 10* 1000 ms
+        if(g_bat_thread_count < 3) {
+        	xlog_printk(ANDROID_LOG_INFO, "Power/Battery", "g_bat_thread_count : done\n", g_bat_thread_count);
+					g_bat_thread_count += 1;
+					ktime = ktime_set(5, 0);	// 5s, 5* 1000 ms
+				}else {
+		    	ktime = ktime_set(10, 0);	// 10s, 10* 1000 ms
+		    }
     
         wait_event_interruptible(battery_kthread_waiter, battery_kthread_flag != 0);
     
@@ -4578,7 +4433,8 @@ void battery_kthread_hrtimer_init(void)
 {
     ktime_t ktime;
 
-    ktime = ktime_set(10, 0);	// 10s, 10* 1000 ms
+		ktime = ktime_set(5, 0);	// 5s, 5* 1000 ms
+	
     hrtimer_init(&battery_kthread_timer, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
     battery_kthread_timer.function = battery_kthread_hrtimer_func;    
     hrtimer_start(&battery_kthread_timer, ktime, HRTIMER_MODE_REL);
@@ -4591,8 +4447,6 @@ void battery_kthread_hrtimer_init(void)
 
     xlog_printk(ANDROID_LOG_INFO, "Power/Battery", "battery_kthread_hrtimer_init : done\n" );
 }
-
-int g_bat_init_flag=0;
 
 static int mt6320_battery_probe(struct platform_device *dev)    
 {

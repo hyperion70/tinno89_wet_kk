@@ -1,1 +1,0 @@
-BQ27500 (smart battery IC) is de-feature on Gemini Phone 
