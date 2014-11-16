@@ -306,7 +306,6 @@ kal_int32 gFG_BATT_CAPACITY_init_high_current = 1200;
 kal_int32 gFG_BATT_CAPACITY_aging = 1200;
 int volt_mode_update_timer=0;
 int volt_mode_update_time_out=6; //1mins
-kal_int32 g_rtc_fg_soc = 0;
 
 #define AGING_TUNING_VALUE 103
 
@@ -1616,9 +1615,9 @@ kal_int32 fgauge_read_capacity(kal_int32 type)
     gFG_temp = fgauge_read_temperature();
     C_0mA = fgauge_get_Q_max(gFG_temp);
     C_400mA = fgauge_get_Q_max_high_current(gFG_temp);
-    if((C_0mA > C_400mA) && (gFG_capacity_by_v == g_rtc_fg_soc))
+    if(C_0mA > C_400mA)
     {
-        dvalue_new = (100-dvalue) - ( ( (C_0mA-C_400mA) * (dvalue) ) / C_0mA );
+        dvalue_new = (100-dvalue) - ( ( (C_0mA-C_400mA) * (dvalue) ) / C_400mA );
         dvalue = 100 - dvalue_new;
     }
     if (Enable_FGADC_LOG == 1){
@@ -1724,23 +1723,28 @@ kal_int32 fgauge_read_r_bat_by_v(kal_int32 voltage)
     int i = 0, saddles = 0;
     R_PROFILE_STRUC_P profile_p;
     kal_int32 ret_r = 0;
+    //add by yangyan
+    kal_int32 compensate_r = 50;                         //modify by yangyan
 
     profile_p = fgauge_get_profile_r_table(TEMPERATURE_T);
     if (profile_p == NULL)
     {
         xlog_printk(ANDROID_LOG_WARN, "Power/Battery", "[FGADC] fgauge get R-Table profile : fail !\r\n");
-        return (profile_p+0)->resistance;
+   //     return (profile_p+0)->resistance;                              //modify by yangyan
+	 return (((profile_p+0)->resistance)+compensate_r);     //modify by yangyan
     }
 
     saddles = fgauge_get_saddles_r_table();
 
     if (voltage > (profile_p+0)->voltage)
     {
-        return (profile_p+0)->resistance; 
+     //   return (profile_p+0)->resistance;                              //modify by yangyan
+	 return (((profile_p+0)->resistance)+compensate_r);     //modify by yangyan
     }    
     if (voltage < (profile_p+saddles-1)->voltage)
     {
-        return (profile_p+saddles-1)->resistance; 
+     //   return (profile_p+saddles-1)->resistance;                               //modify by yangyan
+	 return (((profile_p+saddles-1)->resistance)+compensate_r);     //modify by yangyan
     }
 
     for (i = 0; i < saddles - 1; i++)
@@ -1759,7 +1763,7 @@ kal_int32 fgauge_read_r_bat_by_v(kal_int32 voltage)
         }
     }
 
-    return ret_r;
+    return (ret_r+compensate_r);                        //modify by yangyan
 }
 
 kal_int32 fgauge_read_v_by_capacity(int bat_capacity)
@@ -2216,6 +2220,8 @@ int g_tracking_point = CUST_TRACKING_POINT;
 #else
 int g_tracking_point = 14;
 #endif
+
+kal_int32 g_rtc_fg_soc = 0;
 extern int get_rtc_spare_fg_value(void);
 
 void fgauge_Normal_Mode_Work(void)
@@ -2223,9 +2229,9 @@ void fgauge_Normal_Mode_Work(void)
     int i=0;
    
 //1. Get Raw Data  
-    
+    gFG_current = fgauge_read_current();
+
     gFG_voltage = fgauge_read_voltage();
-		gFG_current = fgauge_read_current();
     gFG_voltage_init = gFG_voltage;
     gFG_voltage = gFG_voltage + fgauge_compensate_battery_voltage_recursion(gFG_voltage,5); //mV  
     gFG_voltage = gFG_voltage + OCV_BOARD_COMPESATE;
@@ -2302,7 +2308,6 @@ void fgauge_Normal_Mode_Work(void)
 
 	if(gFG_booting_counter_I_FLAG == 1) { 
 		gFG_capacity_by_v_init = gFG_capacity_by_v;
-		xlog_printk(ANDROID_LOG_INFO, "Power/Battery", "[FGADC] after gFG_voltage=%d\n", gFG_voltage);
 	}
 //3. Calculate battery capacity by Coulomb Counter
     gFG_capacity_by_c = fgauge_read_capacity(1);
@@ -2316,15 +2321,14 @@ void fgauge_Normal_Mode_Work(void)
         //use get_hw_ocv-----------------------------------------------------------------
         gFG_voltage = get_hw_ocv();        
         gFG_capacity_by_v = fgauge_read_capacity_by_v();
-				xlog_printk(ANDROID_LOG_INFO, "Power/Battery", "[FGADC] get_hw_ocv=%d, HW_SOC=%d, SW_SOC = %d\n", 
-				gFG_voltage, gFG_capacity_by_v, gFG_capacity_by_v_init);
-				// compare with hw_ocv & sw_ocv, check if less than or equal to 25mV tolerance 
-				if (abs(gFG_voltageVBAT - gFG_voltage) > 25) {
-						gFG_capacity_by_v = gFG_capacity_by_v_init;
-				}
-				
-				xlog_printk(ANDROID_LOG_INFO, "Power/Battery", "[FGADC] SW_VBAT=%d, HW_VBAT=%d, gFG_capacity_by_v = %d\n", 
-				gFG_voltageVBAT, gFG_voltage, gFG_capacity_by_v);
+		xlog_printk(ANDROID_LOG_INFO, "Power/Battery", "[FGADC] get_hw_ocv=%d, HW_SOC=%d, SW_SOC = %d\n", 
+			gFG_voltage, gFG_capacity_by_v, gFG_capacity_by_v_init);
+		if (upmu_is_chr_det() == KAL_TRUE) {
+			// compare with hw_ocv & sw_ocv, check if less than or equal to 5% tolerance 
+			if (abs(gFG_capacity_by_v_init - gFG_capacity_by_v) > 5) {
+				gFG_capacity_by_v = gFG_capacity_by_v_init;
+			}
+		}
         //-------------------------------------------------------------------------------
         g_rtc_fg_soc = get_rtc_spare_fg_value();
         if(g_rtc_fg_soc >= gFG_capacity_by_v)
@@ -2353,8 +2357,7 @@ void fgauge_Normal_Mode_Work(void)
 	xlog_printk(ANDROID_LOG_INFO, "Power/Battery", "[FGADC] g_rtc_fg_soc=%d, gFG_capacity_by_v=%d\n", 
                 g_rtc_fg_soc, gFG_capacity_by_v);
         
-	if ((gFG_capacity_by_v == 0 && upmu_is_chr_det() == KAL_TRUE) || 
-			(g_boot_mode == LOW_POWER_OFF_CHARGING_BOOT && gFG_capacity_by_v_init <= 1)) {
+	if (gFG_capacity_by_v == 0 && upmu_is_chr_det() == KAL_TRUE) {
 		gFG_capacity_by_v = 1;
 		xlog_printk(ANDROID_LOG_INFO, "Power/Battery", "[FGADC] gFG_capacity_by_v=%d\n", 
 			gFG_capacity_by_v);
