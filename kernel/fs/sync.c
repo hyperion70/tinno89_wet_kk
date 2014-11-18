@@ -16,15 +16,31 @@
 #include <linux/quotaops.h>
 #include <linux/backing-dev.h>
 #include "internal.h"
+#ifdef CONFIG_ASYNC_FSYNC
+#include <linux/statfs.h>
+#endif
 
 #define FEATURE_PRINT_FSYNC_PID
 #ifdef USER_BUILD_KERNEL
 #undef FEATURE_PRINT_FSYNC_PID
 #endif
 #include <linux/xlog.h>
+#ifdef CONFIG_DYNAMIC_FSYNC
+extern bool early_suspend_active;
+extern bool dyn_fsync_active;
+#endif
 
 #define VALID_FLAGS (SYNC_FILE_RANGE_WAIT_BEFORE|SYNC_FILE_RANGE_WRITE| \
 			SYNC_FILE_RANGE_WAIT_AFTER)
+
+#ifdef CONFIG_ASYNC_FSYNC
+#define FLAG_ASYNC_FSYNC        0x1
+static struct workqueue_struct *fsync_workqueue = NULL;
+struct fsync_work {
+	struct work_struct work;
+	char pathname[256];
+};
+#endif
 
 /*
  * Do the filesystem syncing work. For simple filesystems
@@ -216,6 +232,13 @@ static int __sync_filesystem(struct super_block *sb, int wait)
 #ifdef FEATURE_PRINT_FSYNC_PID
 	char b[BDEVNAME_SIZE];
 #endif 
+	/*
+	 * This should be safe, as we require bdi backing to actually
+	 * write out data in the first place
+	 */
+	if (sb->s_bdi == &noop_backing_dev_info)
+		return 0;
+
 	if (sb->s_qcop && sb->s_qcop->quota_sync)
 		sb->s_qcop->quota_sync(sb, -1, wait);
 
@@ -268,67 +291,96 @@ int sync_filesystem(struct super_block *sb)
 }
 EXPORT_SYMBOL_GPL(sync_filesystem);
 
-static void sync_inodes_one_sb(struct super_block *sb, void *arg)
+static void sync_one_sb(struct super_block *sb, void *arg)
 {
 	if (!(sb->s_flags & MS_RDONLY))
-		sync_inodes_sb(sb);
+		__sync_filesystem(sb, *(int *)arg);
 }
-
-static void sync_fs_one_sb(struct super_block *sb, void *arg)
+/*
+ * Sync all the data for all the filesystems (called by sys_sync() and
+ * emergency sync)
+ */
+void sync_filesystems(int wait)
 {
-	if (!(sb->s_flags & MS_RDONLY) && sb->s_op->sync_fs)
-		sb->s_op->sync_fs(sb, *(int *)arg);
-}
-
-static void fdatawrite_one_bdev(struct block_device *bdev, void *arg)
-{
-	filemap_fdatawrite(bdev->bd_inode->i_mapping);
-}
-
-static void fdatawait_one_bdev(struct block_device *bdev, void *arg)
-{
-	filemap_fdatawait(bdev->bd_inode->i_mapping);
+	iterate_supers(sync_one_sb, &wait);
 }
 
 /*
- * Sync everything. We start by waking flusher threads so that most of
- * writeback runs on all devices in parallel. Then we sync all inodes reliably
- * which effectively also waits for all flusher threads to finish doing
- * writeback. At this point all data is on disk so metadata should be stable
- * and we tell filesystems to sync their metadata via ->sync_fs() calls.
- * Finally, we writeout all block devices because some filesystems (e.g. ext2)
- * just write metadata (such as inodes or bitmaps) to block device page cache
- * and do not sync it on their own in ->sync_fs().
+ * sync everything.  Start out by waking pdflush, because that writes back
+ * all queues in parallel.
+ */
+static void do_sync(void)
+{
+	wakeup_flusher_threads(0, WB_REASON_SYNC);
+	sync_filesystems(0);
+	sync_filesystems(1);
+	if (unlikely(laptop_mode))
+		laptop_sync_completion();
+	return;
+}
+
+static DEFINE_MUTEX(sync_mutex);	/* One do_sync() at a time. */
+static unsigned long sync_seq;		/* Many sync()s from one do_sync(). */
+					/*  Overflow harmless, extra wait. */
+
+/*
+ * Only allow one task to do sync() at a time, and further allow
+ * concurrent sync() calls to be satisfied by a single do_sync()
+ * invocation.
  */
 SYSCALL_DEFINE0(sync)
 {
-	int nowait = 0, wait = 1;
+	unsigned long snap;
+	unsigned long snap_done;
 
-	wakeup_flusher_threads(0, WB_REASON_SYNC);
-	iterate_supers(sync_inodes_one_sb, NULL);
-	iterate_supers(sync_fs_one_sb, &nowait);
-	iterate_supers(sync_fs_one_sb, &wait);
-	iterate_bdevs(fdatawrite_one_bdev, NULL);
-	iterate_bdevs(fdatawait_one_bdev, NULL);
-	if (unlikely(laptop_mode))
-		laptop_sync_completion();
+	snap = ACCESS_ONCE(sync_seq);
+	smp_mb();  /* Prevent above from bleeding into critical section. */
+	mutex_lock(&sync_mutex);
+	snap_done = sync_seq;
+
+	/*
+	 * If the value in snap is odd, we need to wait for the current
+	 * do_sync() to complete, then wait for the next one, in other
+	 * words, we need the value of snap_done to be three larger than
+	 * the value of snap.  On the other hand, if the value in snap is
+	 * even, we only have to wait for the next request to complete,
+	 * in other words, we need the value of snap_done to be only two
+	 * greater than the value of snap.  The "(snap + 3) & 0x1" computes
+	 * this for us (thank you, Linus!).
+	 */
+	if (ULONG_CMP_GE(snap_done, (snap + 3) & ~0x1)) {
+		/*
+		 * A full do_sync() executed between our two fetches from
+		 * sync_seq, so our work is done!
+		 */
+		smp_mb(); /* Order test with caller's subsequent code. */
+		mutex_unlock(&sync_mutex);
+		return 0;
+	}
+
+	/* Record the start of do_sync(). */
+	ACCESS_ONCE(sync_seq)++;
+	WARN_ON_ONCE((sync_seq & 0x1) != 1);
+	smp_mb(); /* Keep prior increment out of do_sync(). */
+
+	do_sync();
+
+	/* Record the end of do_sync(). */
+	smp_mb(); /* Keep subsequent increment out of do_sync(). */
+	ACCESS_ONCE(sync_seq)++;
+	WARN_ON_ONCE((sync_seq & 0x1) != 0);
+	mutex_unlock(&sync_mutex);
 	return 0;
 }
 
 static void do_sync_work(struct work_struct *work)
 {
-	int nowait = 0;
-
 	/*
 	 * Sync twice to reduce the possibility we skipped some inodes / pages
 	 * because they were temporarily locked
 	 */
-	iterate_supers(sync_inodes_one_sb, &nowait);
-	iterate_supers(sync_fs_one_sb, &nowait);
-	iterate_bdevs(fdatawrite_one_bdev, NULL);
-	iterate_supers(sync_inodes_one_sb, &nowait);
-	iterate_supers(sync_fs_one_sb, &nowait);
-	iterate_bdevs(fdatawrite_one_bdev, NULL);
+	sync_filesystems(0);
+	sync_filesystems(0);
 	printk("Emergency Sync complete\n");
 	kfree(work);
 }
@@ -388,6 +440,11 @@ int vfs_fsync_range(struct file *file, loff_t start, loff_t end, int datasync)
 #endif	
 
 
+	#ifdef CONFIG_DYNAMIC_FSYNC
+	if (likely(dyn_fsync_active && !early_suspend_active))
+		return 0;
+	else {
+#endif
 	if (!file->f_op || !file->f_op->fsync)
 		return -EINVAL;
 #ifdef FEATURE_PRINT_FSYNC_PID
@@ -459,6 +516,9 @@ mutex_unlock(&fsync_mutex);
 #endif	
 
 	return file->f_op->fsync(file, start, end, datasync);
+#ifdef CONFIG_DYNAMIC_FSYNC
+	}
+#endif
 }
 EXPORT_SYMBOL(vfs_fsync_range);
 
@@ -476,21 +536,121 @@ int vfs_fsync(struct file *file, int datasync)
 }
 EXPORT_SYMBOL(vfs_fsync);
 
+#ifdef CONFIG_ASYNC_FSYNC
+extern int emmc_perf_degr(void);
+#define LOW_STORAGE_THRESHOLD   786432
+int async_fsync(struct file *file, int fd)
+{
+	struct inode *inode = file->f_mapping->host;
+	struct super_block *sb = inode->i_sb;
+	struct kstatfs st;
+
+	if ((sb->fsync_flags & FLAG_ASYNC_FSYNC) == 0)
+		return 0;
+
+	if (!emmc_perf_degr())
+		return 0;
+
+	if (fd_statfs(fd, &st))
+		return 0;
+
+	if (st.f_bfree > LOW_STORAGE_THRESHOLD)
+		return 0;
+
+	return 1;
+}
+
+static int do_async_fsync(char *pathname)
+{
+	struct file *file;
+	int ret;
+	file = filp_open(pathname, O_RDWR, 0);
+	if (IS_ERR(file)) {
+		pr_debug("%s: can't open %s\n", __func__, pathname);
+		return -EBADF;
+	}
+	ret = vfs_fsync(file, 0);
+
+	filp_close(file, NULL);
+	return ret;
+}
+
+static void do_afsync_work(struct work_struct *work)
+{
+	struct fsync_work *fwork =
+		container_of(work, struct fsync_work, work);
+	int ret = -EBADF;
+
+	pr_debug("afsync: %s\n", fwork->pathname);
+	ret = do_async_fsync(fwork->pathname);
+	if (ret != 0 && ret != -EBADF)
+		pr_info("afsync return %d\n", ret);
+	else
+		pr_debug("afsync: %s done\n", fwork->pathname);
+	kfree(fwork);
+}
+#endif
+
 static int do_fsync(unsigned int fd, int datasync)
 {
 	struct file *file;
 	int ret = -EBADF;
+#ifdef CONFIG_ASYNC_FSYNC
+	struct fsync_work *fwork;
+#endif
 
 	file = fget(fd);
 	if (file) {
+		ktime_t fsync_t, fsync_diff;
+		char pathname[256], *path;
+		path = d_path(&(file->f_path), pathname, sizeof(pathname));
+		if (IS_ERR(path))
+			path = "(unknown)";
+#ifdef CONFIG_ASYNC_FSYNC
+		else if (async_fsync(file, fd)) {
+			if (!fsync_workqueue)
+				fsync_workqueue =
+					create_singlethread_workqueue("fsync");
+			if (!fsync_workqueue)
+				goto no_async;
+
+			if (IS_ERR(path))
+				goto no_async;
+
+			fwork = kmalloc(sizeof(*fwork), GFP_KERNEL);
+			if (fwork) {
+				strncpy(fwork->pathname, path,
+					sizeof(fwork->pathname) - 1);
+				INIT_WORK(&fwork->work, do_afsync_work);
+				queue_work(fsync_workqueue, &fwork->work);
+				fput(file);
+				return 0;
+			}
+		}
+no_async:
+#endif
+		fsync_t = ktime_get();
 		ret = vfs_fsync(file, datasync);
 		fput(file);
+		fsync_diff = ktime_sub(ktime_get(), fsync_t);
+		if (ktime_to_ms(fsync_diff) >= 5000) {
+                        pr_info("VFS: %s pid:%d(%s)(parent:%d/%s)\
+				takes %lld ms to fsync %s.\n", __func__,
+				current->pid, current->comm,
+				current->parent->pid, current->parent->comm,
+				ktime_to_ms(fsync_diff), path);
+		}
 	}
 	return ret;
 }
 
 SYSCALL_DEFINE1(fsync, unsigned int, fd)
 {
+	#ifdef CONFIG_DYNAMIC_FSYNC
+	if (likely(dyn_fsync_active && !early_suspend_active))
+		return 0;
+	else
+	#endif
 	return do_fsync(fd, 0);
 }
 
@@ -566,6 +726,11 @@ EXPORT_SYMBOL(generic_write_sync);
 SYSCALL_DEFINE(sync_file_range)(int fd, loff_t offset, loff_t nbytes,
 				unsigned int flags)
 {
+#ifdef CONFIG_DYNAMIC_FSYNC
+	if (likely(dyn_fsync_active && !early_suspend_active))
+		return 0;
+	else {
+#endif
 	int ret;
 	struct file *file;
 	struct address_space *mapping;
@@ -645,6 +810,9 @@ out_put:
 	fput_light(file, fput_needed);
 out:
 	return ret;
+#ifdef CONFIG_DYNAMIC_FSYNC
+	}
+#endif
 }
 #ifdef CONFIG_HAVE_SYSCALL_WRAPPERS
 asmlinkage long SyS_sync_file_range(long fd, loff_t offset, loff_t nbytes,
@@ -661,6 +829,11 @@ SYSCALL_ALIAS(sys_sync_file_range, SyS_sync_file_range);
 SYSCALL_DEFINE(sync_file_range2)(int fd, unsigned int flags,
 				 loff_t offset, loff_t nbytes)
 {
+#ifdef CONFIG_DYNAMIC_FSYNC
+	if (likely(dyn_fsync_active && !early_suspend_active))
+		return 0;
+	else
+#endif
 	return sys_sync_file_range(fd, offset, nbytes, flags);
 }
 #ifdef CONFIG_HAVE_SYSCALL_WRAPPERS

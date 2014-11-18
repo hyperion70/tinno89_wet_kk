@@ -2066,6 +2066,14 @@ static int do_new_mount(struct path *path, char *type, int flags,
 		xlog_printk(ANDROID_LOG_DEBUG, "MNT_TAG", "do_new_mount, do_add_mount error\n"); 
 		mntput(mnt);
 		}
+
+#ifdef CONFIG_ASYNC_FSYNC
+	if (!err && ((!strcmp(type, "ext4") &&
+	    !strcmp(path->dentry->d_name.name, "data")) ||
+	    (!strcmp(type, "fuse") &&
+	    !strcmp(path->dentry->d_name.name, "emulated"))))
+                mnt->mnt_sb->fsync_flags |= FLAG_ASYNC_FSYNC;
+#endif
 	return err;
 }
 

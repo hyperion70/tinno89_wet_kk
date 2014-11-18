@@ -1512,6 +1512,10 @@ struct super_block {
 
 	/* Being remounted read-only */
 	int s_readonly_remount;
+#ifdef CONFIG_ASYNC_FSYNC
+#define FLAG_ASYNC_FSYNC        0x1
+	unsigned int fsync_flags;
+#endif
 };
 
 /* superblock cache pruning functions */
@@ -2098,6 +2102,7 @@ static inline void iterate_bdevs(void (*f)(struct block_device *, void *), void 
 }
 #endif
 extern int sync_filesystem(struct super_block *);
+extern void sync_filesystems(int wait);
 extern const struct file_operations def_blk_fops;
 extern const struct file_operations def_chr_fops;
 extern const struct file_operations bad_sock_fops;
