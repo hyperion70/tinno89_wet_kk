@@ -18,6 +18,10 @@
 /*kpd.h file path: ALPS/mediatek/kernel/include/linux */
 #include <linux/kpd.h>
 
+#ifdef CONFIG_TOUCHSCREEN_TOUCH2WAKE
+#include <linux/input/touch2wake.h>
+#endif
+
 #define KPD_NAME	"mtk-kpd"
 #define MTK_KP_WAKESOURCE//this is for auto set wake up source
 
@@ -860,6 +864,13 @@ static int kpd_pdrv_probe(struct platform_device *pdev)
 		if (kpd_keymap[i] != 0)
 			__set_bit(kpd_keymap[i], kpd_input_dev->keybit);
 	}
+
+#ifdef CONFIG_TOUCHSCREEN_TOUCH2WAKE
+	touch2wake_setdev(kpd_input_dev);
+#if TW_DEBUG
+	pr_debug("[TOUCH2WAKE]: power key capture done\n");
+#endif
+#endif
 
 #if KPD_AUTOTEST
 	for (i = 0; i < ARRAY_SIZE(kpd_auto_keymap); i++)

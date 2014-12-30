@@ -40,6 +40,10 @@
 
 #include "cust_gpio_usage.h"
 
+#ifdef CONFIG_TOUCHSCREEN_TOUCH2WAKE
+#include <linux/input/touch2wake.h>
+#endif
+
 #define FTS_SUPPORT_TRACK_ID
 
 extern struct tpd_device *tpd;
@@ -137,6 +141,17 @@ static  void tpd_down(tinno_ts_data *ts, int x, int y, int pressure, int trackID
        input_report_abs(tpd->dev, ABS_MT_TOUCH_MAJOR, 20);
 	input_report_abs(tpd->dev, ABS_MT_POSITION_X, x);
 	input_report_abs(tpd->dev, ABS_MT_POSITION_Y, y);
+#ifdef CONFIG_TOUCHSCREEN_TOUCH2WAKE
+#if TW_DEBUG
+	pr_debug("[TOUCH2WAKE]: tpd down\n");
+#endif
+	if (sweep2wake) {
+#if TW_DEBUG
+		pr_debug("[SWEEP2WAKE]: detecting sweep\n");
+#endif
+		detect_sweep2wake(x, y, jiffies, trackID);
+	}
+#endif
 #ifdef FTS_SUPPORT_TRACK_ID
 	input_report_abs(tpd->dev, ABS_MT_TRACKING_ID, trackID);
 #endif
@@ -159,7 +174,34 @@ static  int tpd_up(tinno_ts_data *ts, int x, int y, int pressure, int trackID)
         input_report_key(tpd->dev, BTN_TOUCH, 0);
         input_mt_sync(tpd->dev);
         __clear_bit(trackID, &ts->fingers_flag);
-        
+
+#ifdef CONFIG_TOUCHSCREEN_TOUCH2WAKE
+#if TW_DEBUG
+	pr_debug("[TOUCH2WAKE]: inside tpd up\n");
+#endif
+	s2w_st_flag = 0;
+	if (sweep2wake > 0) {
+#if TW_DEBUG
+		pr_debug("[SWEEP2WAKE]: line : %d | func : %s\n", __LINE__, __func__);
+		pr_debug("[SWEEP2WAKE]: resetin s2w param\n");
+		pr_debug("[SWEEP2WAKE]: line : %d | func : %s\n", __LINE__, __func__);
+#endif
+		exec_count = true;
+		barrier[0] = false;
+		barrier[1] = false;
+		scr_on_touch = false;
+		tripoff = 0;
+		tripon = 0;
+		triptime = 0;
+	}
+	if (doubletap2wake && scr_suspended) {
+#if TW_DEBUG
+		printk("[TOUCH2WAKE]: detecting d2w\n");
+#endif
+		doubletap2wake_func(x, y, jiffies);
+	}
+#endif
+       
         //TPD_UP_DEBUG_TRACK(x,y);
         if (FACTORY_BOOT == get_boot_mode() || RECOVERY_BOOT == get_boot_mode()) {   
             tpd_button(x, y, 0); 
@@ -400,6 +442,7 @@ static  int tpd_up(tinno_ts_data *ts, int x, int y, int pressure, int trackID)
                 #if 1
 			if(ts->pcount > 0)
 			{
+				s2w_st_flag = ts->pcount;
 				for ( i=0; i < ts->pcount; i++ )
 				{
 					tpd_down(ts, touch_point[i].x, touch_point[i].y, touch_point[i].pressure, touch_point[i].touch_id);//<20120714><for multi-touch id>wangyanhui
@@ -674,6 +717,13 @@ err_check_functionality_failed:
 
 static void tpd_resume(struct early_suspend *h)
 {
+#ifdef CONFIG_TOUCHSCREEN_TOUCH2WAKE
+#if TW_DEBUG
+	pr_debug("[TOUCH2WAKE]: inside tpd up\n");
+#endif
+	scr_suspended = false;
+	if ((sweep2wake == 0 || sweep2wake == 3) && doubletap2wake == 0) {
+#endif
 	if ( g_pts ){
 		CTP_DBG("TPD wake up\n");
 		if (atomic_read(&g_pts->isp_opened)){
@@ -701,6 +751,10 @@ static void tpd_resume(struct early_suspend *h)
         g_need_refresh_tp_flag = 1;
         
 	}
+#ifdef CONFIG_TOUCHSCREEN_TOUCH2WAKE
+	} else if ((sweep2wake > 0 && sweep2wake < 3) || doubletap2wake > 0)
+		mt65xx_eint_unmask(CUST_EINT_TOUCH_PANEL_NUM);
+#endif
  }
  
 //Clear the unfinished touch event, simulate a up event if there this a pen down or move event.
@@ -721,7 +775,14 @@ static void tpd_suspend(struct early_suspend *h)
 	int ret = 0;
 	int iRetry = 5;
 	const char data = 0x3;
- 
+#ifdef CONFIG_TOUCHSCREEN_TOUCH2WAKE
+#if TW_DEBUG
+	pr_debug("[TOUCH2WAKE]: early suspend\n");
+#endif
+	scr_suspended = true;
+	if ((sweep2wake == 0 || sweep2wake == 3) && doubletap2wake == 0) {
+#endif
+
 	if ( g_pts ){
 		 CTP_DBG("TPD enter sleep\n");
 		if (atomic_read(&g_pts->isp_opened)){
@@ -781,6 +842,10 @@ static void tpd_suspend(struct early_suspend *h)
 #endif
 		atomic_set( &g_pts->ts_sleepState, 1 );
 	}
+#ifdef CONFIG_TOUCHSCREEN_TOUCH2WAKE
+	} else if ((sweep2wake > 0 && sweep2wake < 3) || doubletap2wake > 0)
+		mt65xx_eint_unmask(CUST_EINT_TOUCH_PANEL_NUM);
+#endif
  } 
 
 
