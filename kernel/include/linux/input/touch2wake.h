@@ -22,7 +22,7 @@
 #define _LINUX_TOUCH2WAKE_H
 
 #include <linux/input.h>
-#include <linux/earlysuspend.h>
+#include <linux/powersuspend.h>
 #include <linux/hrtimer.h>
 
 #define TW_DEBUG	0

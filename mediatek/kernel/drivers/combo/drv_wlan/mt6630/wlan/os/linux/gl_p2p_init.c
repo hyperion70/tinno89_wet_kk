@@ -71,13 +71,13 @@ static UINT_16 mode = RUNNING_P2P_MODE;
 *                   F U N C T I O N   D E C L A R A T I O N S
 ********************************************************************************
 */
-#if defined(CONFIG_HAS_EARLYSUSPEND) && 0
-extern int glRegisterEarlySuspend(
-    struct early_suspend        *prDesc,
-    early_suspend_callback      wlanSuspend,
-    late_resume_callback        wlanResume);
+#ifdef CONFIG_POWERSUSPEND && 0
+extern int glRegisterPowerSuspend(
+    struct power_suspend        *prDesc,
+    power_suspend_callback      wlanSuspend,
+    power_resume_callback        wlanResume);
 
-extern int glUnregisterEarlySuspend(struct early_suspend *prDesc);
+extern int glUnregisterPowerSuspend(struct power_suspend *prDesc);
 #endif
 
 /*******************************************************************************
@@ -127,7 +127,7 @@ p2pCheckInterfaceName(
 extern UINT_8 g_aucBufIpAddr[32];
 
 #if 0
-static void wlanP2PEarlySuspend(void)
+static void wlanP2PPowerSuspend(void)
 {
     struct net_device *prDev = NULL;
     P_GLUE_INFO_T prGlueInfo = NULL;
@@ -140,10 +140,10 @@ static void wlanP2PEarlySuspend(void)
     UINT_32 i;
 	P_PARAM_NETWORK_ADDRESS_IP prParamIpAddr;
 
-    printk(KERN_INFO "*********p2pEarlySuspend************\n");
+    printk(KERN_INFO "*********p2pPowerSuspend************\n");
 
     if(!wlanExportGlueInfo(&prGlueInfo)) {
-        printk(KERN_INFO "*********p2pEarlySuspend ignored************\n");
+        printk(KERN_INFO "*********p2pPowerSuspend ignored************\n");
         return;
     }
 
@@ -264,7 +264,7 @@ static void wlanP2PEarlySuspend(void)
 }
 
 
-static void wlanP2PLateResume(void)
+static void wlanP2PPowerResume(void)
 {
     struct net_device *prDev = NULL;
     P_GLUE_INFO_T prGlueInfo = NULL;
@@ -273,9 +273,9 @@ static void wlanP2PLateResume(void)
     UINT_8  ip6[16] = { 0 };     // FIX ME: avoid to allocate large memory in stack
 #endif
 
-    printk(KERN_INFO "*********wlanP2PLateResume************\n");
+    printk(KERN_INFO "*********wlanP2PPowerResume************\n");
     if(!wlanExportGlueInfo(&prGlueInfo)) {
-        printk(KERN_INFO "*********p2pLateResume ignored************\n");
+        printk(KERN_INFO "*********p2pPowerResume ignored************\n");
         return;
     }
 
@@ -345,21 +345,20 @@ static void wlanP2PLateResume(void)
 }
 #endif
 
-#if defined(CONFIG_HAS_EARLYSUSPEND) && 0
-static struct early_suspend mt6620_p2p_early_suspend_desc = {
-    .level = EARLY_SUSPEND_LEVEL_BLANK_SCREEN,
+#ifdef CONFIG_POWERSUSPEND && 0
+static struct power_suspend mt6620_p2p_power_suspend_desc = {
 };
 
-static void p2p_early_suspend(struct early_suspend *h)
+static void p2p_power_suspend(struct power_suspend *h)
 {
-    printk(KERN_INFO "*********wlanP2P_early_suspend************\n");
-    wlanP2PEarlySuspend();
+    printk(KERN_INFO "*********wlanP2P_power_suspend************\n");
+    wlanP2PPowerSuspend();
 }
 
-static void p2p_late_resume(struct early_suspend *h)
+static void p2p_power_resume(struct power_suspend *h)
 {
-    printk(KERN_INFO "*********wlanP2P_late_resume************\n");
-    wlanP2PLateResume();
+    printk(KERN_INFO "*********wlanP2P_power_resume************\n");
+    wlanP2PPowerResume();
 }
 #endif
 

@@ -22,13 +22,9 @@ config HAS_WAKELOCK
 	bool
 	default y
 
-config HAS_EARLYSUSPEND
-	bool
-	default y
-
 config HAS_SBSUSPEND
 	bool
-	depends on HAS_EARLYSUSPEND
+	depends on POWERSUSPEND
 	default y
 
 config WAKELOCK
@@ -40,25 +36,6 @@ config POWERSUSPEND
 	default y
 	---help---
 	  Call power suspend handlers when the user requested sleep state
-	  changes.
-
-config EARLYSUSPEND
-	bool "Early suspend"
-	depends on WAKELOCK
-	default y
-	select HAS_EARLYSUSPEND
-	---help---
-	  Call early suspend handlers when the user requested sleep state
-	  changes.
-
-
-config FB_EARLYSUSPEND
-	bool "FB Early suspend"
-	depends on EARLYSUSPEND
-	default y
-	select HAS_EARLYSUSPEND
-	---help---
-	  Call early suspend handlers when the user requested sleep state
 	  changes.
 
 config HIBERNATE_CALLBACKS

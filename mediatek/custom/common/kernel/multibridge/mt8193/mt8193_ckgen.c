@@ -10,7 +10,7 @@
 #include <linux/spinlock.h>
 #include <linux/interrupt.h>
 #include <linux/platform_device.h>
-#include <linux/earlysuspend.h>
+#include <linux/powersuspend.h>
 #include <linux/cdev.h>
 #include <asm/uaccess.h>
 #include <mach/mt_gpio.h>
@@ -131,12 +131,12 @@ struct file_operations mt8193_ckgen_fops = {
 extern void msleep(unsigned int msecs);
 
 
-bool g_earlysuspend = FALSE;
+bool g_powersuspend = FALSE;
 
-#if defined(CONFIG_HAS_EARLYSUSPEND)
-static void mt8193_ckgen_early_suspend(struct early_suspend *h)
+#ifdef CONFIG_POWERSUSPEND
+static void mt8193_ckgen_power_suspend(struct power_suspend *h)
 {
-    printk("[CKGEN] mt8193_ckgen_early_suspend() enter\n");
+    printk("[CKGEN] mt8193_ckgen_power_suspend() enter\n");
 
 #if 0
     // turn off lvds digital
@@ -166,8 +166,8 @@ static void mt8193_ckgen_early_suspend(struct early_suspend *h)
 
 #if !MT8193_MLC
 
-    /* If we use 8193 NFI, we should turn off pllgp in suspend because early suspend state may still use NFI.
-       Otherwise, we can turn off pllgp in early suspend. */
+    /* If we use 8193 NFI, we should turn off pllgp in suspend because power suspend state may still use NFI.
+       Otherwise, we can turn off pllgp in power suspend. */
        
     printk("[CKGEN] bus clock switch\n");
 
@@ -199,13 +199,13 @@ static void mt8193_ckgen_early_suspend(struct early_suspend *h)
     
 #endif
 
-    g_earlysuspend = TRUE;
-    printk("[CKGEN] mt8193_ckgen_early_suspend() exit\n");
+    g_powersuspend = TRUE;
+    printk("[CKGEN] mt8193_ckgen_power_suspend() exit\n");
 }
 
-static void mt8193_ckgen_late_resume(struct early_suspend *h)
+static void mt8193_ckgen_power_resume(struct power_suspend *h)
 {
-    printk("[CKGEN] mt8193_ckgen_late_resume() enter\n");
+    printk("[CKGEN] mt8193_ckgen_power_resume() enter\n");
 #if 0
     // bus clk switch to 26M
     mt8193_bus_clk_switch(false);
@@ -234,8 +234,8 @@ static void mt8193_ckgen_late_resume(struct early_suspend *h)
 
 #if !MT8193_MLC
 
-    /* If we use 8193 NFI, we should turn off pllgp in suspend because early suspend state may still use NFI.
-       Otherwise, we can turn off pllgp in early suspend. */
+    /* If we use 8193 NFI, we should turn off pllgp in suspend because power suspend state may still use NFI.
+       Otherwise, we can turn off pllgp in power suspend. */
        
 #if MT8193_DISABLE_DCXO
     mt8193_enable_dcxo_core();
@@ -255,14 +255,14 @@ static void mt8193_ckgen_late_resume(struct early_suspend *h)
     
     
 #endif
-    g_earlysuspend = FALSE;
-    printk("[CKGEN] mt8193_ckgen_late_resume() exit\n");
+    g_powersuspend = FALSE;
+    printk("[CKGEN] mt8193_ckgen_power_resume() exit\n");
 }
 
-static struct early_suspend mt8193_ckgen_early_suspend_desc = {
+static struct power_suspend mt8193_ckgen_power_suspend_desc = {
     .level      = 0xFF,
-    .suspend    = mt8193_ckgen_early_suspend,
-    .resume     = mt8193_ckgen_late_resume,
+    .suspend    = mt8193_ckgen_power_suspend,
+    .resume     = mt8193_ckgen_power_resume,
 };
 #endif
 
@@ -386,13 +386,13 @@ static long mt8193_ckgen_ioctl(struct file *file, unsigned int cmd, unsigned lon
             break;
         }
 
-        case MTK_MT8193_EARLY_SUSPEND:
+        case MTK_MT8193_POWER_SUSPEND:
         {
             
             break;
         }
 
-        case MTK_MT8193_LATE_RESUME:
+        case MTK_MT8193_POWER_RESUME:
         {
             
             break;
@@ -435,8 +435,8 @@ static int __init mt8193_ckgen_init(void)
     printk("[CKGEN] mt8193_ckgen_init() enter\n");
     ret = platform_driver_register(&mt8193_ckgen_driver);
 
-#if defined(CONFIG_HAS_EARLYSUSPEND)
-    register_early_suspend(&mt8193_ckgen_early_suspend_desc);
+#ifdef CONFIG_POWERSUSPEND
+    register_power_suspend(&mt8193_ckgen_power_suspend_desc);
 #endif
     
     printk("[CKGEN] mt8193_ckgen_init() exit\n");
@@ -1155,8 +1155,8 @@ static int mt8193_ckgen_suspend(struct platform_device *pdev, pm_message_t state
 
 #if MT8193_MLC
     
-    /* If we use 8193 NFI, we should turn off pllgp in suspend because early suspend state may still use NFI.
-       Otherwise, we can turn off pllgp in early suspend. */
+    /* If we use 8193 NFI, we should turn off pllgp in suspend because power suspend state may still use NFI.
+       Otherwise, we can turn off pllgp in power suspend. */
        
     /* add 8193 suspend function here */
 
@@ -1179,9 +1179,9 @@ static int mt8193_ckgen_suspend(struct platform_device *pdev, pm_message_t state
     mt8193_bus_clk_switch(true);
     msleep(50);
 #endif
-    if (FALSE == g_earlysuspend)
+    if (FALSE == g_powersuspend)
     {
-	    mt8193_ckgen_early_suspend(NULL); //fix bug ALPS01177451
+	    mt8193_ckgen_power_suspend(NULL); //fix bug ALPS01177451
     }
     printk("[CKGEN] mt8193_ckgen_suspend() exit\n");
     
@@ -1207,8 +1207,8 @@ static int mt8193_ckgen_resume(struct platform_device *pdev)
 {
     printk("[CKGEN] mt8193_ckgen_resume() enter\n");
     
-    /* If we use 8193 NFI, we should turn off pllgp in suspend because early suspend state may still use NFI.
-       Otherwise, we can turn off pllgp in early suspend. */
+    /* If we use 8193 NFI, we should turn off pllgp in suspend because power suspend state may still use NFI.
+       Otherwise, we can turn off pllgp in power suspend. */
 
 #if MT8193_MLC
     /* add 8193 resume function here */
@@ -1219,9 +1219,9 @@ static int mt8193_ckgen_resume(struct platform_device *pdev)
     mt8193_pllgp_ana_pwr_control(true);
     msleep(2);
 #endif
-	if (TRUE == g_earlysuspend)
+	if (TRUE == g_powersuspend)
 	{
-	    mt8193_ckgen_late_resume(NULL);
+	    mt8193_ckgen_power_resume(NULL);
 	}
 
     printk("[CKGEN] mt8193_ckgen_resume() exit\n");

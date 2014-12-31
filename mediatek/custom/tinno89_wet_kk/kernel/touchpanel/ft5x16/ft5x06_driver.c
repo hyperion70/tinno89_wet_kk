@@ -715,7 +715,7 @@ err_check_functionality_failed:
 	return 0; 
 }
 
-static void tpd_resume(struct early_suspend *h)
+static void tpd_resume(struct power_suspend *h)
 {
 #ifdef CONFIG_TOUCHSCREEN_TOUCH2WAKE
 #if TW_DEBUG
@@ -770,14 +770,14 @@ void ft5x06_complete_unfinished_event( void )
 	input_sync(tpd->dev);
 }
 
-static void tpd_suspend(struct early_suspend *h)
+static void tpd_suspend(struct power_suspend *h)
  {
 	int ret = 0;
 	int iRetry = 5;
 	const char data = 0x3;
 #ifdef CONFIG_TOUCHSCREEN_TOUCH2WAKE
 #if TW_DEBUG
-	pr_debug("[TOUCH2WAKE]: early suspend\n");
+	pr_debug("[TOUCH2WAKE]: power suspend\n");
 #endif
 	scr_suspended = true;
 	if ((sweep2wake == 0 || sweep2wake == 3) && doubletap2wake == 0) {

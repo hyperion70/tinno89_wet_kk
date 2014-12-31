@@ -5,8 +5,8 @@ static struct mag_context *mag_context_obj = NULL;
 
 static struct mag_init_info* msensor_init_list[MAX_CHOOSE_G_NUM]= {0}; //modified
 
-static void mag_early_suspend(struct early_suspend *h);
-static void mag_late_resume(struct early_suspend *h);
+static void mag_power_suspend(struct power_suspend *h);
+static void mag_power_resume(struct power_suspend *h);
 
 static void mag_work_func(struct work_struct *work)
 {
@@ -768,11 +768,10 @@ static int mag_probe(struct platform_device *pdev)
 		goto exit_alloc_input_dev_failed;
 	}
 
-    atomic_set(&(mag_context_obj->early_suspend), 0);
-	mag_context_obj->early_drv.level    = EARLY_SUSPEND_LEVEL_STOP_DRAWING - 1,
-	mag_context_obj->early_drv.suspend  = mag_early_suspend,
-	mag_context_obj->early_drv.resume   = mag_late_resume,    
-	register_early_suspend(&mag_context_obj->early_drv);
+    atomic_set(&(mag_context_obj->power_suspend), 0);
+	mag_context_obj->power_drv.suspend  = mag_power_suspend,
+	mag_context_obj->power_drv.resume   = mag_power_resume,    
+	register_power_suspend(&mag_context_obj->power_drv);
 
 	wake_lock_init(&(mag_context_obj->read_data_wake_lock),WAKE_LOCK_SUSPEND,"read_data_wake_lock");
   
@@ -819,17 +818,17 @@ static int mag_remove(struct platform_device *pdev)
 	return 0;
 }
 
-static void mag_early_suspend(struct early_suspend *h) 
+static void mag_power_suspend(struct power_suspend *h) 
 {
-   atomic_set(&(mag_context_obj->early_suspend), 1);
-   MAG_LOG(" mag_context_obj ok------->hwm_obj->early_suspend=%d \n",atomic_read(&(mag_context_obj->early_suspend)));
+   atomic_set(&(mag_context_obj->power_suspend), 1);
+   MAG_LOG(" mag_context_obj ok------->hwm_obj->power_suspend=%d \n",atomic_read(&(mag_context_obj->power_suspend)));
    return ;
 }
 /*----------------------------------------------------------------------------*/
-static void mag_late_resume(struct early_suspend *h)
+static void mag_power_resume(struct power_suspend *h)
 {
-   atomic_set(&(mag_context_obj->early_suspend), 0);
-   MAG_LOG(" mag_context_obj ok------->hwm_obj->early_suspend=%d \n",atomic_read(&(mag_context_obj->early_suspend)));
+   atomic_set(&(mag_context_obj->power_suspend), 0);
+   MAG_LOG(" mag_context_obj ok------->hwm_obj->power_suspend=%d \n",atomic_read(&(mag_context_obj->power_suspend)));
    return ;
 }
 
