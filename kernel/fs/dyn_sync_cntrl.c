@@ -25,7 +25,7 @@
 #include <linux/writeback.h>
 
 #define DYN_FSYNC_VERSION_MAJOR 1
-#define DYN_FSYNC_VERSION_MINOR 2
+#define DYN_FSYNC_VERSION_MINOR 5
 
 /*
  * fsync_mutex protects dyn_fsync_active during power suspend / late resume
@@ -104,10 +104,9 @@ static struct attribute_group dyn_fsync_active_attr_group =
 
 static struct kobject *dyn_fsync_kobj;
 
+extern void sync_filesystems(int wait);
 static void dyn_fsync_force_flush(void)
 {
-	/* flush all outstanding buffers */
-	wakeup_flusher_threads(0, WB_REASON_SYNC);
 	sync_filesystems(0);
 	sync_filesystems(1);
 }
