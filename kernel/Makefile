@@ -356,8 +356,8 @@ OPTFLAGS	= -mcpu=cortex-a7 -mfpu=neon-vfpv4 \
 
 CHECKFLAGS     := -D__linux__ -Dlinux -D__STDC__ -Dunix -D__unix__ \
 		  -Wbitwise -Wno-return-void $(CF)
-CFLAGS_MODULE   =
-AFLAGS_MODULE   =
+CFLAGS_MODULE   = -DMODULE $(OPTFLAGS)
+AFLAGS_MODULE   = -DMODULE $(OPTFLAGS)
 LDFLAGS_MODULE  =
 CFLAGS_KERNEL	= $(OPTFLAGS)
 AFLAGS_KERNEL	=
@@ -378,7 +378,7 @@ KBUILD_CFLAGS   := -Wall -Wundef -Wstrict-prototypes -Wno-trigraphs \
 		   -Werror-implicit-function-declaration \
 		   -Wno-format-security \
 		   -fno-delete-null-pointer-checks \
-		   -mcpu=cortex-a7 -mfpu=neon-vfpv4 -mfloat-abi=softfp
+		   $(OPTFLAGS)
 KBUILD_AFLAGS_KERNEL :=
 KBUILD_CFLAGS_KERNEL :=
 KBUILD_AFLAGS   := -D__ASSEMBLY__
