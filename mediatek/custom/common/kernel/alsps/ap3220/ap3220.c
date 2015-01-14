@@ -21,7 +21,7 @@
 #include <linux/input.h>
 #include <linux/workqueue.h>
 #include <linux/kobject.h>
-#include <linux/earlysuspend.h>
+#include <linux/powersuspend.h>
 #include <linux/platform_device.h>
 #include <asm/atomic.h>
 
@@ -120,9 +120,9 @@ struct ap3220_priv {
 	ulong		enable; 		/*enable mask*/
 	ulong		pending_intr;	/*pending interrupt*/
 	
-	/*early suspend*/
-	#if defined(CONFIG_HAS_EARLYSUSPEND)
-	struct early_suspend	early_drv;
+	/*power suspend*/
+	#ifdef CONFIG_POWERSUSPEND
+	struct power_suspend	power_drv;
 	#endif     
 };
 /*----------------------------------------------------------------------------*/
@@ -1279,9 +1279,9 @@ static struct miscdevice ap3220_device = {
 };
 
 /*--------------------------------------------------------------------------------------*/
-static void ap3220_early_suspend(struct early_suspend *h)
+static void ap3220_power_suspend(struct power_suspend *h)
 {
-		struct ap3220_priv *obj = container_of(h, struct ap3220_priv, early_drv);	
+		struct ap3220_priv *obj = container_of(h, struct ap3220_priv, power_drv);	
 		int err;
 		APS_FUN();	  
 	
@@ -1298,9 +1298,9 @@ static void ap3220_early_suspend(struct early_suspend *h)
 		}
 }
 
-static void ap3220_late_resume(struct early_suspend *h) 
+static void ap3220_power_resume(struct power_suspend *h) 
 {
-		struct ap3220_priv *obj = container_of(h, struct ap3220_priv, early_drv);		  
+		struct ap3220_priv *obj = container_of(h, struct ap3220_priv, power_drv);		  
 		int err;
 		hwm_sensor_data sensor_data;
 		memset(&sensor_data, 0, sizeof(sensor_data));
@@ -1781,11 +1781,10 @@ static int ap3220_i2c_probe(struct i2c_client *client, const struct i2c_device_i
 		goto exit_sensor_obj_attach_fail;
 	}
 
-	#if defined(CONFIG_HAS_EARLYSUSPEND)
-	obj->early_drv.level    = EARLY_SUSPEND_LEVEL_STOP_DRAWING - 2,
-	obj->early_drv.suspend  = ap3220_early_suspend,
-	obj->early_drv.resume   = ap3220_late_resume,    
-	register_early_suspend(&obj->early_drv);
+	#ifdef CONFIG_POWERSUSPEND
+	obj->power_drv.suspend  = ap3220_power_suspend,
+	obj->power_drv.resume   = ap3220_power_resume,    
+	register_power_suspend(&obj->power_drv);
 	#endif
 
 	APS_LOG("%s: OK\n", __func__);

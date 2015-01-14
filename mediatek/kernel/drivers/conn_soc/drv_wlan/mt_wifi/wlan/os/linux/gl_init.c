@@ -158,7 +158,7 @@
  *
  * 04 27 2011 george.huang
  * [WCXRP00000684] [MT6620 Wi-Fi][Driver] Support P2P setting ARP filter
- * Support P2P ARP filter setting on early suspend/ late resume
+ * Support P2P ARP filter setting on power suspend/ power resume
  *
  * 04 18 2011 terry.wu
  * [WCXRP00000660] [MT6620 Wi-Fi][Driver] Remove flag CFG_WIFI_DIRECT_MOVED
@@ -221,7 +221,7 @@
  *
  * 03 21 2011 cp.wu
  * [WCXRP00000540] [MT5931][Driver] Add eHPI8/eHPI16 support to Linux Glue Layer
- * improve portability for awareness of early version of linux kernel and wireless extension.
+ * improve portability for awareness of power version of linux kernel and wireless extension.
  *
  * 03 21 2011 cp.wu
  * [WCXRP00000540] [MT5931][Driver] Add eHPI8/eHPI16 support to Linux Glue Layer
@@ -229,7 +229,7 @@
  *
  * 03 18 2011 jeffrey.chang
  * [WCXRP00000512] [MT6620 Wi-Fi][Driver] modify the net device relative functions to support the H/W multiple queue
- * remove early suspend functions
+ * remove power suspend functions
  *
  * 03 17 2011 cp.wu
  * [WCXRP00000562] [MT6620 Wi-Fi][Driver] I/O buffer pre-allocation to avoid physically continuous memory shortage after system running for a long period
@@ -284,11 +284,11 @@
  *
  * 02 16 2011 jeffrey.chang
  * NULL
- * Add query ipv4 and ipv6 address during early suspend and late resume
+ * Add query ipv4 and ipv6 address during power suspend and power resume
  *
  * 02 15 2011 jeffrey.chang
  * NULL
- * to support early suspend in android
+ * to support power suspend in android
  *
  * 02 11 2011 yuche.tsai
  * [WCXRP00000431] [Volunteer Patch][MT6620][Driver] Add MLME support for deauthentication under AP(Hot-Spot) mode.
@@ -922,13 +922,13 @@ mtk_cfg80211_ais_default_mgmt_stypes[NUM_NL80211_IFTYPES] = {
 ********************************************************************************
 */
 
-#if defined(CONFIG_HAS_EARLYSUSPEND)
-extern int glRegisterEarlySuspend(
-    struct early_suspend        *prDesc,
-    early_suspend_callback      wlanSuspend,
-    late_resume_callback        wlanResume);
+#ifdef CONFIG_POWERSUSPEND
+extern int glRegisterPowerSuspend(
+    struct power_suspend        *prDesc,
+    power_suspend_callback      wlanSuspend,
+    power_resume_callback        wlanResume);
 
-extern int glUnregisterEarlySuspend(struct early_suspend *prDesc);
+extern int glUnregisterPowerSuspend(struct power_suspend *prDesc);
 #endif
 
 /*******************************************************************************
@@ -2424,7 +2424,7 @@ wlanNetDestroy(
 #ifndef CONFIG_X86
 UINT_8 g_aucBufIpAddr[32] = {0};
 
-static void wlanEarlySuspend(void)
+static void wlanPowerSuspend(void)
 {
     struct net_device *prDev = NULL;
     P_GLUE_INFO_T prGlueInfo = NULL;
@@ -2437,12 +2437,12 @@ static void wlanEarlySuspend(void)
     UINT_32 i;
     P_PARAM_NETWORK_ADDRESS_IP prParamIpAddr;
 
-    DBGLOG(INIT, INFO, ("*********wlanEarlySuspend************\n"));
+    DBGLOG(INIT, INFO, ("*********wlanPowerSuspend************\n"));
 
     // <1> Sanity check and acquire the net_device
     ASSERT(u4WlanDevNum <= CFG_MAX_WLAN_DEVICES);
     if(u4WlanDevNum == 0){
-        DBGLOG(INIT, ERROR, ("wlanEarlySuspend u4WlanDevNum==0 invalid!!\n"));
+        DBGLOG(INIT, ERROR, ("wlanPowerSuspend u4WlanDevNum==0 invalid!!\n"));
         return;
     }
     prDev = arWlanDevInfo[u4WlanDevNum-1].prDev;
@@ -2558,7 +2558,7 @@ fgIsUnderEarlierSuspend = true;
     }
 }
 
-static void wlanLateResume(void)
+static void wlanPowerResume(void)
 {
     struct net_device *prDev = NULL;
     P_GLUE_INFO_T prGlueInfo = NULL;
@@ -2570,12 +2570,12 @@ static void wlanLateResume(void)
     EVENT_AIS_BSS_INFO_T rParam;
     UINT_32 u4BufLen = 0;
 
-    DBGLOG(INIT, INFO, ("*********wlanLateResume************\n"));
+    DBGLOG(INIT, INFO, ("*********wlanPowerResume************\n"));
 
     // <1> Sanity check and acquire the net_device
     ASSERT(u4WlanDevNum <= CFG_MAX_WLAN_DEVICES);
     if(u4WlanDevNum == 0){
-        DBGLOG(INIT, ERROR, ("wlanLateResume u4WlanDevNum==0 invalid!!\n"));
+        DBGLOG(INIT, ERROR, ("wlanPowerResume u4WlanDevNum==0 invalid!!\n"));
         return;
     }
 	prDev = arWlanDevInfo[u4WlanDevNum-1].prDev;
@@ -2676,23 +2676,22 @@ fgIsUnderEarlierSuspend = false;
     }
 }
 
-#if defined(CONFIG_HAS_EARLYSUSPEND)
-static struct early_suspend mt6620_early_suspend_desc = {
-    .level = EARLY_SUSPEND_LEVEL_BLANK_SCREEN,
+#ifdef CONFIG_POWERSUSPEND
+static struct power_suspend mt6620_power_suspend_desc = {
 };
 
-static void wlan_early_suspend(struct early_suspend *h)
+static void wlan_power_suspend(struct power_suspend *h)
 {
-    DBGLOG(INIT, INFO, ("*********wlan_early_suspend************\n"));
-    wlanEarlySuspend();
+    DBGLOG(INIT, INFO, ("*********wlan_power_suspend************\n"));
+    wlanPowerSuspend();
 }
 
-static void wlan_late_resume(struct early_suspend *h)
+static void wlan_power_resume(struct power_suspend *h)
 {
-    DBGLOG(INIT, INFO, ("*********wlan_late_resume************\n"));
-    wlanLateResume();
+    DBGLOG(INIT, INFO, ("*********wlan_power_resume************\n"));
+    wlanPowerResume();
 }
-#endif //defined(CONFIG_HAS_EARLYSUSPEND)
+#endif //#ifdef CONFIG_POWERSUSPEND
 #endif //! CONFIG_X86
 
 extern void wlanRegisterNotifier(void);
@@ -2782,19 +2781,19 @@ set_p2p_mode_handler(
 	/* move out to caller to avoid kalIoctrl & suspend/resume deadlock problem ALPS00844864 */
 	/*
 		Scenario:
-			1. System enters suspend/resume but not yet enter wlanearlysuspend()
-				or wlanlateresume();
+			1. System enters suspend/resume but not yet enter wlanpowersuspend()
+				or wlanpowerresume();
 
 			2. System switches to do PRIV_CMD_P2P_MODE and execute kalIoctl()
-				and get g_halt_sem then do glRegisterEarlySuspend() or
-				glUnregisterEarlySuspend();
+				and get g_halt_sem then do glRegisterPowerSuspend() or
+				glUnregisterPowerSuspend();
 				
 				But system suspend/resume procedure is not yet finished so we
 				suspend;
 
 			3. System switches back to do suspend/resume procedure and execute
 				kalIoctl(). But driver does not yet release g_halt_sem so system
-				suspend in wlanearlysuspend() or wlanlateresume();
+				suspend in wlanpowersuspend() or wlanpowerresume();
 
 				==> deadlock occurs.
 	*/
@@ -3098,9 +3097,9 @@ bailout:
             DBGLOG(INIT, ERROR, ("wlanProbe: Cannot register the net_device context to the kernel\n"));
             break;
         }
-#if defined(CONFIG_HAS_EARLYSUSPEND)
-        DBGLOG(INIT, TRACE, ("glRegisterEarlySuspend...\n"));
-        glRegisterEarlySuspend(&mt6620_early_suspend_desc, wlan_early_suspend, wlan_late_resume);
+#ifdef CONFIG_POWERSUSPEND
+        DBGLOG(INIT, TRACE, ("glRegisterPowerSuspend...\n"));
+        glRegisterPowerSuspend(&mt6620_power_suspend_desc, wlan_power_suspend, wlan_power_resume);
         wlanRegisterNotifier();
 #endif
 
@@ -3360,9 +3359,9 @@ wlanRemove(
     wlanNetDestroy(prDev->ieee80211_ptr);
     prDev = NULL;
 
-#if defined(CONFIG_HAS_EARLYSUSPEND)
-    DBGLOG(INIT, INFO, ("glUnregisterEarlySuspend...\n"));
-    glUnregisterEarlySuspend(&mt6620_early_suspend_desc);
+#ifdef CONFIG_POWERSUSPEND
+    DBGLOG(INIT, INFO, ("glUnregisterPowerSuspend...\n"));
+    glUnregisterPowerSuspend(&mt6620_power_suspend_desc);
 #endif
 
     DBGLOG(INIT, INFO, ("wlanUnregisterNotifier...\n"));

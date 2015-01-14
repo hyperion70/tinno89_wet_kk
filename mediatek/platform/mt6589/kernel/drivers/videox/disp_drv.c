@@ -47,8 +47,8 @@ extern s32 mt_set_gpio_pull_enable(u32 pin, u32 enable);
 #include <linux/vmalloc.h>
 #include "mtkfb_info.h"
 extern unsigned int lcd_fps;
-extern BOOL is_early_suspended;
-extern struct semaphore sem_early_suspend;
+extern BOOL is_power_suspended;
+extern struct semaphore sem_power_suspend;
 #endif
 
 extern unsigned int EnableVSyncLog;
@@ -1903,7 +1903,7 @@ static int _DISP_DetectAliveKThread(void *data)
 	while(1)
 	{
 		msleep(5000);
-		if (!is_early_suspended){
+		if (!is_power_suspended){
 			//return update cnt to power monitor
 #ifdef CONFIG_MTK_AEE_POWERKEY_HANG_DETECT
 			if(screen_update_cnt > 0){
@@ -1927,7 +1927,7 @@ static int _DISP_DetectAliveKThread(void *data)
 			vsync_wq_flag = 0;
 			if (wait_event_interruptible_timeout(vsync_wq, vsync_wq_flag, HZ) == 0)
 			{
-				printk("[_DISP_DetectAliveKThread] Wait VSync timeout. early_suspend=%d\n", is_early_suspended);
+				printk("[_DISP_DetectAliveKThread] Wait VSync timeout. power_suspend=%d\n", is_power_suspended);
 				vsync_timeout_cnt++;
 			}
 			else
@@ -1965,12 +1965,12 @@ static int _DISP_ConfigUpdateKThread(void *data)
         //MMProfileLog(MTKFB_MMP_Events.UpdateConfig, MMProfileFlagStart);
         dirty = 0;
 		disp_thread_start_time = sched_clock();
-        if (down_interruptible(&sem_early_suspend)) {
-            printk("[FB Driver] can't get semaphore in mtkfb_early_suspend()\n");
+        if (down_interruptible(&sem_power_suspend)) {
+            printk("[FB Driver] can't get semaphore in mtkfb_power_suspend()\n");
             continue;
         }
-        //MMProfileLogEx(MTKFB_MMP_Events.EarlySuspend, MMProfileFlagStart, 1, 0);
-        if (need_esd_check && (!is_early_suspended))
+        //MMProfileLogEx(MTKFB_MMP_Events.PowerSuspend, MMProfileFlagStart, 1, 0);
+        if (need_esd_check && (!is_power_suspended))
         {
             esd_check_count = 0;
             disp_running = 1;
@@ -2013,7 +2013,7 @@ static int _DISP_ConfigUpdateKThread(void *data)
             disp_running = 0;
         }
 
-        if (!is_early_suspended)
+        if (!is_power_suspended)
         {
             if (mutex_trylock(&OverlaySettingMutex))
             {
@@ -2153,7 +2153,7 @@ static int _DISP_ConfigUpdateKThread(void *data)
                 ((lcm_params->type == LCM_TYPE_DSI) && (lcm_params->dsi.mode == CMD_MODE)))
             {
                 DISP_STATUS ret = _DISP_ConfigUpdateScreen(0, 0, DISP_GetScreenWidth(), DISP_GetScreenHeight());
-                if ((ret != DISP_STATUS_OK) && (is_early_suspended == 0))
+                if ((ret != DISP_STATUS_OK) && (is_power_suspended == 0))
                     hrtimer_start(&cmd_mode_update_timer, cmd_mode_update_timer_period, HRTIMER_MODE_REL);
             }
             disp_path_release_mutex();
@@ -2164,7 +2164,7 @@ static int _DISP_ConfigUpdateKThread(void *data)
                 ((lcm_params->type == LCM_TYPE_DSI) && (lcm_params->dsi.mode == CMD_MODE)))
             {
                 // Start update timer.
-                if (!is_early_suspended)
+                if (!is_power_suspended)
                 {
                 	  if (is_immediateupdate)
                 	  	hrtimer_start(&cmd_mode_update_timer, ktime_set(0 , 5000000), HRTIMER_MODE_REL);
@@ -2175,8 +2175,8 @@ static int _DISP_ConfigUpdateKThread(void *data)
         }
 
         //MMProfileLog(MTKFB_MMP_Events.UpdateConfig, MMProfileFlagEnd);
-        //MMProfileLogEx(MTKFB_MMP_Events.EarlySuspend, MMProfileFlagEnd, 1, 0);
-        up(&sem_early_suspend);
+        //MMProfileLogEx(MTKFB_MMP_Events.PowerSuspend, MMProfileFlagEnd, 1, 0);
+        up(&sem_power_suspend);
         if (kthread_should_stop())
             break;
     }
@@ -2186,10 +2186,10 @@ static int _DISP_ConfigUpdateKThread(void *data)
 
 static void _DISP_HWDoneCallback(void* pParam)
 {
-    MMProfileLogEx(MTKFB_MMP_Events.DispDone, MMProfileFlagPulse, is_early_suspended, 0);
+    MMProfileLogEx(MTKFB_MMP_Events.DispDone, MMProfileFlagPulse, is_power_suspended, 0);
     // For DPI, this callback is called each time DPI VSync arrives.
-    // So trigger disp done event only in early suspend.
-    if ((lcm_params->type != LCM_TYPE_DPI) || (is_early_suspended))
+    // So trigger disp done event only in power suspend.
+    if ((lcm_params->type != LCM_TYPE_DPI) || (is_power_suspended))
     {
         // Disable DPI immediately to avoid restarting of DDP.
         if (lcm_params->type == LCM_TYPE_DPI)
@@ -2391,7 +2391,7 @@ void DISP_WaitVSYNC(void)
         vsync_wq_flag = 0;
         if (wait_event_interruptible_timeout(vsync_wq, vsync_wq_flag, HZ/10) == 0)
         {
-            printk("[DISP] Wait VSync timeout. early_suspend=%d\n", is_early_suspended);
+            printk("[DISP] Wait VSync timeout. power_suspend=%d\n", is_power_suspended);
         }
         
     }
@@ -2402,7 +2402,7 @@ void DISP_WaitVSYNC(void)
         vsync_wq_flag = 0;
         if (wait_event_interruptible_timeout(vsync_wq, vsync_wq_flag, HZ/10) == 0)
         {
-            printk("[DISP] Wait VSync timeout. early_suspend=%d\n", is_early_suspended);
+            printk("[DISP] Wait VSync timeout. power_suspend=%d\n", is_power_suspended);
         }
         //printk("[DISP] -VSync\n");
     }
@@ -2842,7 +2842,7 @@ DISP_STATUS HDMI_Config_Overlay_to_Memory(unsigned int mva, int enable, unsigned
     return DSI_STATUS_OK;
 }
 
-DISP_STATUS DISP_Capture_Framebuffer( unsigned int pvbuf, unsigned int bpp, unsigned int is_early_suspended )
+DISP_STATUS DISP_Capture_Framebuffer( unsigned int pvbuf, unsigned int bpp, unsigned int is_power_suspended )
 {
     unsigned int mva;
     unsigned int ret = 0;
@@ -2864,7 +2864,7 @@ DISP_STATUS DISP_Capture_Framebuffer( unsigned int pvbuf, unsigned int bpp, unsi
 	disp_drv_init_context();
 	disp_module_clock_on(DISP_MODULE_WDMA1, "Screen Capture");
 
-    if (is_early_suspended)
+    if (is_power_suspended)
     {
         if(lcm_params->type==LCM_TYPE_DSI)
         {
@@ -2919,13 +2919,13 @@ DISP_STATUS DISP_Capture_Framebuffer( unsigned int pvbuf, unsigned int bpp, unsi
     MemOutConfig.srcROI.y = 0;
     MemOutConfig.srcROI.height= DISP_GetScreenHeight();
     MemOutConfig.srcROI.width= DISP_GetScreenWidth();
-    if (is_early_suspended == 0)
+    if (is_power_suspended == 0)
         MemOutConfig.dirty = 1;
 	// must clear mem_out_flag before config
     disp_path_clear_mem_out_done();
     mutex_unlock(&MemOutSettingMutex);
     MMProfileLogEx(MTKFB_MMP_Events.CaptureFramebuffer, MMProfileFlagPulse, 2, mva);
-    if (is_early_suspended)
+    if (is_power_suspended)
     {
         disp_path_get_mutex();
         disp_path_config_mem_out_without_lcd(&MemOutConfig);

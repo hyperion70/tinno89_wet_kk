@@ -20,6 +20,9 @@
 #include <linux/init.h>
 #include <linux/uaccess.h>
 #include <linux/user.h>
+#include <linux/export.h>
+#include <linux/proc_fs.h>
+#include <linux/seq_file.h>
 
 #include <asm/cp15.h>
 #include <asm/cputype.h>
@@ -87,6 +90,11 @@ static void vfp_force_reload(unsigned int cpu, struct thread_info *thread)
 	thread->vfpstate.hard.cpu = NR_CPUS;
 #endif
 }
+
+/*
+ * Used for reporting emulation statistics via /proc
+ */
+static atomic64_t vfp_bounce_count = ATOMIC64_INIT(0);
 
 /*
  * Per-thread VFP initialization.
@@ -345,6 +353,7 @@ void VFP_bounce(u32 trigger, u32 fpexc, struct pt_regs *regs)
 	u32 fpscr, orig_fpscr, fpsid, exceptions;
 
 	pr_debug("VFP: bounce: trigger %08x fpexc %08x\n", trigger, fpexc);
+	atomic64_inc(&vfp_bounce_count);
 
 	/*
 	 * At this point, FPEXC can have the following configuration:
@@ -667,6 +676,72 @@ int vfp_restore_user_hwstate(struct user_vfp __user *ufp,
 	return err ? -EFAULT : 0;
 }
 
+void vfp_kmode_exception(void)
+{
+	/*
+	 * If we reach this point, a floating point exception has been raised
+	 * while running in kernel mode. If the NEON/VFP unit was enabled at the
+	 * time, it means a VFP instruction has been issued that requires
+	 * software assistance to complete, something which is not currently
+	 * supported in kernel mode.
+	 * If the NEON/VFP unit was disabled, and the location pointed to below
+	 * is properly preceded by a call to kernel_neon_begin(), something has
+	 * caused the task to be scheduled out and back in again. In this case,
+	 * rebuilding and running with CONFIG_DEBUG_ATOMIC_SLEEP enabled should
+	 * be helpful in localizing the problem.
+	 */
+	if (fmrx(FPEXC) & FPEXC_EN)
+		pr_crit("BUG: unsupported FP instruction in kernel mode\n");
+	else
+		pr_crit("BUG: FP instruction issued in kernel mode with FP unit disabled\n");
+}
+
+#ifdef CONFIG_KERNEL_MODE_NEON
+
+/*
+ * Kernel-side NEON support functions
+ */
+void kernel_neon_begin(void)
+{
+	struct thread_info *thread = current_thread_info();
+	unsigned int cpu;
+	u32 fpexc;
+
+	/*
+	 * Kernel mode NEON is only allowed outside of interrupt context
+	 * with preemption disabled. This will make sure that the kernel
+	 * mode NEON register contents never need to be preserved.
+	 */
+	BUG_ON(in_interrupt());
+	cpu = get_cpu();
+
+	fpexc = fmrx(FPEXC) | FPEXC_EN;
+	fmxr(FPEXC, fpexc);
+
+	/*
+	 * Save the userland NEON/VFP state. Under UP,
+	 * the owner could be a task other than 'current'
+	 */
+	if (vfp_state_in_hw(cpu, thread))
+		vfp_save_state(&thread->vfpstate, fpexc);
+#ifndef CONFIG_SMP
+	else if (vfp_current_hw_state[cpu] != NULL)
+		vfp_save_state(vfp_current_hw_state[cpu], fpexc);
+#endif
+	vfp_current_hw_state[cpu] = NULL;
+}
+EXPORT_SYMBOL(kernel_neon_begin);
+
+void kernel_neon_end(void)
+{
+	/* Disable the NEON/VFP unit. */
+	fmxr(FPEXC, fmrx(FPEXC) & ~FPEXC_EN);
+	put_cpu();
+}
+EXPORT_SYMBOL(kernel_neon_end);
+
+#endif /* CONFIG_KERNEL_MODE_NEON */
+
 /*
  * VFP hardware can lose all context when a CPU goes offline.
  * As we will be running in SMP mode with CPU hotplug, we will save the
@@ -687,6 +762,26 @@ static int vfp_hotplug(struct notifier_block *b, unsigned long action,
 		vfp_enable(NULL);
 	return NOTIFY_OK;
 }
+
+#ifdef CONFIG_PROC_FS
+static int vfp_bounce_show(struct seq_file *m, void *v)
+{
+	seq_printf(m, "%llu\n", atomic64_read(&vfp_bounce_count));
+	return 0;
+}
+
+static int vfp_bounce_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, vfp_bounce_show, NULL);
+}
+
+static const struct file_operations vfp_bounce_fops = {
+	.open		= vfp_bounce_open,
+	.read		= seq_read,
+	.llseek		= seq_lseek,
+	.release	= single_release,
+};
+#endif
 
 /*
  * VFP support code initialisation.
@@ -771,4 +866,18 @@ static int __init vfp_init(void)
 	return 0;
 }
 
-late_initcall(vfp_init);
+static int __init vfp_rootfs_init(void)
+{
+#ifdef CONFIG_PROC_FS
+	static struct proc_dir_entry *procfs_entry;
+
+	procfs_entry = proc_create("cpu/vfp_bounce", S_IRUGO, NULL,
+			&vfp_bounce_fops);
+	if (!procfs_entry)
+		pr_err("Failed to create procfs node for VFP bounce reporting\n");
+#endif
+	return 0;
+}
+
+core_initcall(vfp_init);
+rootfs_initcall(vfp_rootfs_init);

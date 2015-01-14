@@ -24,7 +24,7 @@
 #include <linux/workqueue.h>
 #include <linux/kobject.h>
 #include <linux/platform_device.h>
-#include <linux/earlysuspend.h>
+#include <linux/powersuspend.h>
 
 #include <linux/hwmsensor.h>
 #include <linux/hwmsen_dev.h>
@@ -125,8 +125,8 @@ struct akm8963_i2c_data {
     atomic_t layout;   
     atomic_t trace;
 	struct hwmsen_convert   cvt;
-#if defined(CONFIG_HAS_EARLYSUSPEND)    
-    struct early_suspend    early_drv;
+#ifdef CONFIG_POWERSUSPEND    
+    struct power_suspend    power_drv;
 #endif 
 };
 /*----------------------------------------------------------------------------*/
@@ -138,7 +138,7 @@ static struct i2c_driver akm8963_i2c_driver = {
 	.probe      = akm8963_i2c_probe,
 	.remove     = akm8963_i2c_remove,
 	.detect     = akm8963_i2c_detect,
-#if !defined(CONFIG_HAS_EARLYSUSPEND)
+#ifndef CONFIG_POWERSUSPEND
 	.suspend    = akm8963_suspend,
 	.resume     = akm8963_resume,
 #endif 
@@ -1664,7 +1664,7 @@ int akm8963_orientation_operate(void* self, uint32_t command, void* buff_in, int
 }
 
 /*----------------------------------------------------------------------------*/
-#ifndef	CONFIG_HAS_EARLYSUSPEND
+#ifndef CONFIG_POWERSUSPEND
 /*----------------------------------------------------------------------------*/
 static int akm8963_suspend(struct i2c_client *client, pm_message_t msg) 
 {
@@ -1691,11 +1691,11 @@ static int akm8963_resume(struct i2c_client *client)
 	return 0;
 }
 /*----------------------------------------------------------------------------*/
-#else /*CONFIG_HAS_EARLY_SUSPEND is defined*/
+#else /*#ifdef CONFIG_POWERSUSPEND*/
 /*----------------------------------------------------------------------------*/
-static void akm8963_early_suspend(struct early_suspend *h) 
+static void akm8963_power_suspend(struct power_suspend *h) 
 {
-	struct akm8963_i2c_data *obj = container_of(h, struct akm8963_i2c_data, early_drv);   
+	struct akm8963_i2c_data *obj = container_of(h, struct akm8963_i2c_data, power_drv);   
 	int err = 0;
 
 	if(NULL == obj)
@@ -1711,9 +1711,9 @@ static void akm8963_early_suspend(struct early_suspend *h)
 	akm8963_power(obj->hw, 0);       
 }
 /*----------------------------------------------------------------------------*/
-static void akm8963_late_resume(struct early_suspend *h)
+static void akm8963_power_resume(struct power_suspend *h)
 {
-	struct akm8963_i2c_data *obj = container_of(h, struct akm8963_i2c_data, early_drv);         
+	struct akm8963_i2c_data *obj = container_of(h, struct akm8963_i2c_data, power_drv);         
 	int err;
 
 
@@ -1730,7 +1730,7 @@ static void akm8963_late_resume(struct early_suspend *h)
 		}
 }
 /*----------------------------------------------------------------------------*/
-#endif /*CONFIG_HAS_EARLYSUSPEND*/
+#endif /*#ifdef CONFIG_POWERSUSPEND*/
 /*----------------------------------------------------------------------------*/
 static int akm8963_i2c_detect(struct i2c_client *client, struct i2c_board_info *info) 
 {    
@@ -1810,11 +1810,10 @@ static int akm8963_i2c_probe(struct i2c_client *client, const struct i2c_device_
 		goto exit_kfree;
 	}
 	
-#if CONFIG_HAS_EARLYSUSPEND
-	data->early_drv.level    = EARLY_SUSPEND_LEVEL_STOP_DRAWING - 2,
-	data->early_drv.suspend  = akm8963_early_suspend,
-	data->early_drv.resume   = akm8963_late_resume,    
-	register_early_suspend(&data->early_drv);
+#ifdef CONFIG_POWERSUSPEND
+	data->power_drv.suspend  = akm8963_power_suspend,
+	data->power_drv.resume   = akm8963_power_resume,    
+	register_power_suspend(&data->power_drv);
 #endif
 
 	AKMDBG("%s: OK\n", __func__);

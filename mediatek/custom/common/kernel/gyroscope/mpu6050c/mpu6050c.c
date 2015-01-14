@@ -23,7 +23,7 @@
 #include <linux/input.h>
 #include <linux/workqueue.h>
 #include <linux/kobject.h>
-#include <linux/earlysuspend.h>
+#include <linux/powersuspend.h>
 #include <linux/platform_device.h>
 
 #include <cust_gyro.h>
@@ -132,9 +132,9 @@ struct mpu6050c_gyro_i2c_data {
     atomic_t                fir_en;
     struct data_filter      fir;
 #endif 
-    /*early suspend*/
-#if defined(CONFIG_HAS_EARLYSUSPEND)
-    struct early_suspend    early_drv;
+    /*power suspend*/
+#ifdef CONFIG_POWERSUSPEND
+    struct power_suspend    power_drv;
 #endif     
 	ulong		enable; 		/*enable mask*/
 
@@ -146,7 +146,7 @@ static struct i2c_driver mpu6050c_gyro_i2c_driver = {
     },
 	.probe      		= mpu6050c_gyro_i2c_probe,
 	.remove    			= mpu6050c_gyro_i2c_remove,
-#if !defined(CONFIG_HAS_EARLYSUSPEND)    
+#ifndef CONFIG_POWERSUSPEND   
     .suspend            = mpu6050c_gyro_suspend,
     .resume             = mpu6050c_gyro_resume,
 #endif
@@ -1442,7 +1442,7 @@ static struct miscdevice mpu6050c_gyro_acc_device = {
 };
 
 /*----------------------------------------------------------------------------*/
-#ifndef CONFIG_HAS_EARLYSUSPEND
+#ifndef CONFIG_POWERSUSPEND
 /*----------------------------------------------------------------------------*/
 static int mpu6050c_gyro_suspend(struct i2c_client *client, pm_message_t msg) 
 {
@@ -1492,11 +1492,11 @@ static int mpu6050c_gyro_resume(struct i2c_client *client)
 	return 0;
 }
 /*----------------------------------------------------------------------------*/
-#else /*CONFIG_HAS_EARLY_SUSPEND is defined*/
+#else /*#ifdef CONFIG_POWERSUSPEND*/
 /*----------------------------------------------------------------------------*/
-static void mpu6050c_gyro_early_suspend(struct early_suspend *h) 
+static void mpu6050c_gyro_power_suspend(struct power_suspend *h) 
 {
-	struct mpu6050c_gyro_i2c_data *obj = container_of(h, struct mpu6050c_gyro_i2c_data, early_drv);   
+	struct mpu6050c_gyro_i2c_data *obj = container_of(h, struct mpu6050c_gyro_i2c_data, power_drv);   
 	int err;
 	u8 databuf1[2]={0};
 	u8 databuf2[2]={0};
@@ -1535,9 +1535,9 @@ static void mpu6050c_gyro_early_suspend(struct early_suspend *h)
 	MPU6050C_gyro_power(obj->hw, 0);
 }
 /*----------------------------------------------------------------------------*/
-static void mpu6050c_gyro_late_resume(struct early_suspend *h)
+static void mpu6050c_gyro_power_resume(struct power_suspend *h)
 {
-	struct mpu6050c_gyro_i2c_data *obj = container_of(h, struct mpu6050c_gyro_i2c_data, early_drv);         
+	struct mpu6050c_gyro_i2c_data *obj = container_of(h, struct mpu6050c_gyro_i2c_data, power_drv);         
 	int err;
 	GYRO_FUN();
 
@@ -1557,7 +1557,7 @@ static void mpu6050c_gyro_late_resume(struct early_suspend *h)
 	atomic_set(&obj->suspend, 0);    
 }
 /*----------------------------------------------------------------------------*/
-#endif /*CONFIG_HAS_EARLYSUSPEND*/
+#endif /*#ifdef CONFIG_POWERSUSPEND*/
 /*----------------------------------------------------------------------------*/
 /*static int mpu6050c_gyro_i2c_detect(struct i2c_client *client, int kind, struct i2c_board_info *info) 
 {    
@@ -1662,11 +1662,10 @@ static int mpu6050c_gyro_i2c_probe(struct i2c_client *client, const struct i2c_d
 		goto exit_kfree;
 	}
 
-#ifdef CONFIG_HAS_EARLYSUSPEND
-	obj->early_drv.level    = EARLY_SUSPEND_LEVEL_STOP_DRAWING - 2,
-	obj->early_drv.suspend  = mpu6050c_gyro_early_suspend,
-	obj->early_drv.resume   = mpu6050c_gyro_late_resume,    
-	register_early_suspend(&obj->early_drv);
+#ifdef CONFIG_POWERSUSPEND
+	obj->power_drv.suspend  = mpu6050c_gyro_power_suspend,
+	obj->power_drv.resume   = mpu6050c_gyro_power_resume,    
+	register_power_suspend(&obj->power_drv);
 #endif 
 
 	GYRO_LOG("%s: OK\n", __func__);    

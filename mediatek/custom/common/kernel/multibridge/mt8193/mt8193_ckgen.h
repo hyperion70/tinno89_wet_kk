@@ -11,7 +11,7 @@
 #include <linux/device.h>
 #include <linux/platform_device.h>
 #include <linux/dma-mapping.h>
-#include <linux/earlysuspend.h>
+#include <linux/powersuspend.h>
 #include <linux/kthread.h>
 #include <linux/rtpm_prio.h>
 #include <linux/vmalloc.h>
@@ -47,7 +47,6 @@
 #include <linux/device.h>
 #include <linux/platform_device.h>
 #include <linux/dma-mapping.h>
-#include <linux/earlysuspend.h>
 #include <linux/kthread.h>
 #include <linux/rtpm_prio.h>
 
@@ -82,8 +81,8 @@
 #define MTK_MT8193_CKGEN_SPM_CTRL   CKGEN_IO(4)     /* spm ctrl test */
 #define MTK_MT8193_CKGEN_FREQ_METER   CKGEN_IO(5)     /* FREQ METER TEST*/
 #define MTK_MT8193_GPIO_CTRL   CKGEN_IO(6)     /* GPIO CTRL*/
-#define MTK_MT8193_EARLY_SUSPEND   CKGEN_IO(7)     /* early suspend*/
-#define MTK_MT8193_LATE_RESUME   CKGEN_IO(8)     /* late resume*/
+#define MTK_MT8193_POWER_SUSPEND   CKGEN_IO(7)     /* power suspend*/
+#define MTK_MT8193_POWER_RESUME   CKGEN_IO(8)     /* power resume*/
 
 
 

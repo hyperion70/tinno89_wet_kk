@@ -1430,6 +1430,7 @@ config ARM_ERRATA_782773
 endmenu
 
 source "arch/arm/common/Kconfig"
+source "arch/arm/hotplug/Kconfig"
 
 menu "Bus support"
 
@@ -2304,6 +2305,12 @@ config NEON
 	help
 	  Say Y to include support code for NEON, the ARMv7 Advanced SIMD
 	  Extension.
+
+config KERNEL_MODE_NEON
+	bool "Support for NEON in kernel mode"
+	depends on NEON && AEABI
+	help
+	  Say Y to include support for NEON in kernel mode.
 
 endmenu
 

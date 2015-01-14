@@ -11,7 +11,7 @@
 #include <linux/input.h>
 #include <linux/workqueue.h>
 #include <linux/kobject.h>
-#include <linux/earlysuspend.h>
+#include <linux/powersuspend.h>
 #include <linux/platform_device.h>
 #include <asm/atomic.h>
 #include <linux/init.h>
@@ -85,8 +85,8 @@ HDMI_CTRL_STATE_T e_hdmi_ctrl_state = HDMI_STATE_IDLE;
 HDCP_CTRL_STATE_T e_hdcp_ctrl_state = HDCP_RECEIVER_NOT_READY;
 size_t mt8193_hotplugstate = HDMI_STATE_HOT_PLUG_OUT;
 
-#if defined(CONFIG_HAS_EARLYSUSPEND)
-size_t mt8193_hdmiearlysuspend = 1;
+#ifdef CONFIG_POWERSUSPEND
+size_t mt8193_hdmipowersuspend = 1;
 #endif
 
 static struct task_struct *hdmi_timer_task = NULL;
@@ -287,8 +287,8 @@ void mt8193_set_mode(unsigned char ucMode)
 int mt8193_power_on(void)
 {
     MT8193_DRV_FUNC();
-    #if defined(CONFIG_HAS_EARLYSUSPEND)
-    if(mt8193_hdmiearlysuspend==0) return 0;
+    #ifdef CONFIG_POWERSUSPEND
+    if(mt8193_hdmipowersuspend==0) return 0;
     #endif	
 	 mt8193_hotinit = 0;
 	mt8193_hotplugstate = HDMI_STATE_HOT_PLUG_OUT;
@@ -481,23 +481,22 @@ static void _mt8193_irq_handler(void)
 	mt65xx_eint_mask(CUST_EINT_EINT_HDMI_HPD_NUM);   
 }
 
-#if defined(CONFIG_HAS_EARLYSUSPEND)
-static void mt8193_hdmi_early_suspend(struct early_suspend *h)
+#ifdef CONFIG_POWERSUSPEND
+static void mt8193_hdmi_power_suspend(struct power_suspend *h)
 {
 	MT8193_PLUG_FUNC();
-    mt8193_hdmiearlysuspend = 0;
+    mt8193_hdmipowersuspend = 0;
 }
 
-static void mt8193_hdmi_late_resume(struct early_suspend *h)
+static void mt8193_hdmi_power_resume(struct power_suspend *h)
 {
 	MT8193_PLUG_FUNC();
-    mt8193_hdmiearlysuspend = 1;
+    mt8193_hdmipowersuspend = 1;
 }
 
-static struct early_suspend mt8193_hdmi_early_suspend_desc = {
-    .level      = 0xFE,
-    .suspend    = mt8193_hdmi_early_suspend,
-    .resume     = mt8193_hdmi_late_resume,
+static struct power_suspend mt8193_hdmi_power_suspend_desc = {
+    .suspend    = mt8193_hdmi_power_suspend,
+    .resume     = mt8193_hdmi_power_resume,
 };
 #endif
 
@@ -517,8 +516,8 @@ static int mt8193_init(void)
     mt8193_nlh_task = kthread_create(mt8193_nlh_kthread, NULL, "mt8193_nlh_kthread"); 
     wake_up_process(mt8193_nlh_task);
 
-    #if defined(CONFIG_HAS_EARLYSUSPEND)
-    register_early_suspend(&mt8193_hdmi_early_suspend_desc);
+    #ifdef CONFIG_POWERSUSPEND
+    register_power_suspend(&mt8193_hdmi_power_suspend_desc);
     #endif
 
 	
@@ -664,8 +663,8 @@ void hdmi_timer_impl(void)
   if(mt8193_hotinit!=1)
    mt8193_hdmiinit++;
   
-  #if defined(CONFIG_HAS_EARLYSUSPEND)
-  if(mt8193_hdmiearlysuspend==1)
+  #ifdef CONFIG_POWERSUSPEND
+  if(mt8193_hdmipowersuspend==1)
   #endif
   {
    if(((mt8193_hdmiinit>5)||(mt8193_hotinit==0))&&(mt8193_hotinit!=1))

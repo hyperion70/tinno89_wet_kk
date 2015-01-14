@@ -16,7 +16,7 @@
 #include <linux/proc_fs.h>
 #include <linux/miscdevice.h>
 #include <linux/platform_device.h>
-#include <linux/earlysuspend.h>
+#include <linux/powersuspend.h>
 #include <linux/spinlock.h>
 #include <linux/kthread.h>
 #include <linux/hrtimer.h>
@@ -59,10 +59,9 @@ do {                                                                \
 
 #define ARRAY_AND_SIZE(x)	(x), ARRAY_SIZE(x)
 
-#ifdef CONFIG_HAS_EARLYSUSPEND
-static struct early_suspend mt_cpufreq_early_suspend_handler =
+#ifdef CONFIG_POWERSUSPEND
+static struct power_suspend mt_cpufreq_power_suspend_handler =
 {
-    .level = EARLY_SUSPEND_LEVEL_DISABLE_FB + 200,
     .suspend = NULL,
     .resume  = NULL,
 };
@@ -133,7 +132,7 @@ static bool mt_cpufreq_pause = false;
 static bool mt_cpufreq_ptpod_disable = false;
 static bool mt_cpufreq_ptpod_voltage_down = false;
 static bool mt_cpufreq_max_freq_overdrive = false;
-static bool mt_cpufreq_limit_max_freq_early_suspend = false;
+static bool mt_cpufreq_limit_max_freq_power_suspend = false;
 static bool mt_cpufreq_freq_table_allocated = false;
 
 /* pmic volt by PTP-OD */
@@ -320,9 +319,9 @@ void pmic_dvs_into_suspend_set_before_volt_change(void)
 #endif
 
 /************************************************
-* Limited max frequency in 1.2GHz when early suspend 
+* Limited max frequency in 1.2GHz when power suspend 
 *************************************************/
-static unsigned int mt_cpufreq_limit_max_freq_by_early_suspend(void)
+static unsigned int mt_cpufreq_limit_max_freq_by_power_suspend(void)
 {
     struct cpufreq_policy *policy;
 
@@ -333,7 +332,7 @@ static unsigned int mt_cpufreq_limit_max_freq_by_early_suspend(void)
 
     cpufreq_driver_target(policy, DVFS_F1, CPUFREQ_RELATION_L);
 
-    xlog_printk(ANDROID_LOG_INFO, "Power/DVFS", "mt_cpufreq limited max freq by early suspend %d\n", DVFS_F1);
+    xlog_printk(ANDROID_LOG_INFO, "Power/DVFS", "mt_cpufreq limited max freq by power suspend %d\n", DVFS_F1);
 
     cpufreq_cpu_put(policy);
 
@@ -1097,12 +1096,12 @@ static int mt_cpufreq_target(struct cpufreq_policy *policy, unsigned int target_
     }
 
     /************************************************
-    * DVFS keep at 1.2GHz in earlysuspend when max freq overdrive.
+    * DVFS keep at 1.2GHz in powersuspend when max freq overdrive.
     *************************************************/
-    if(mt_cpufreq_limit_max_freq_early_suspend == true)
+    if(mt_cpufreq_limit_max_freq_power_suspend == true)
     {
         freqs.new = DVFS_F1;
-        dprintk("mt_cpufreq_limit_max_freq_early_suspend, freqs.new = %d\n", freqs.new);
+        dprintk("mt_cpufreq_limit_max_freq_power_suspend, freqs.new = %d\n", freqs.new);
     }
 	
     freqs.new = mt_thermal_limited_verify(freqs.new);
@@ -1246,9 +1245,9 @@ static struct cpufreq_driver mt_cpufreq_driver = {
 };
 
 /*********************************
-* early suspend callback function
+* power suspend callback function
 **********************************/
-void mt_cpufreq_early_suspend(struct early_suspend *h)
+void mt_cpufreq_power_suspend(struct power_suspend *h)
 {
     #ifndef MT_DVFS_RANDOM_TEST
 	
@@ -1256,8 +1255,8 @@ void mt_cpufreq_early_suspend(struct early_suspend *h)
 
     if(mt_cpufreq_max_freq_overdrive == true)
     {
-        mt_cpufreq_limit_max_freq_early_suspend = true;
-        mt_cpufreq_limit_max_freq_by_early_suspend();
+        mt_cpufreq_limit_max_freq_power_suspend = true;
+        mt_cpufreq_limit_max_freq_by_power_suspend();
     }
 	
     #endif
@@ -1266,15 +1265,15 @@ void mt_cpufreq_early_suspend(struct early_suspend *h)
 }
 
 /*******************************
-* late resume callback function
+* power resume callback function
 ********************************/
-void mt_cpufreq_late_resume(struct early_suspend *h)
+void mt_cpufreq_power_resume(struct power_suspend *h)
 {
     #ifndef MT_DVFS_RANDOM_TEST
 
     if(mt_cpufreq_max_freq_overdrive == true)
     {
-        mt_cpufreq_limit_max_freq_early_suspend = false;
+        mt_cpufreq_limit_max_freq_power_suspend = false;
     }
 		
     mt_cpufreq_state_set(1);
@@ -1633,10 +1632,10 @@ static int mt_cpufreq_power_dump_read(char *buf, char **start, off_t off, int co
 ********************************************/
 static int mt_cpufreq_pdrv_probe(struct platform_device *pdev)
 {
-    #ifdef CONFIG_HAS_EARLYSUSPEND
-    mt_cpufreq_early_suspend_handler.suspend = mt_cpufreq_early_suspend;
-    mt_cpufreq_early_suspend_handler.resume = mt_cpufreq_late_resume;
-    register_early_suspend(&mt_cpufreq_early_suspend_handler);
+    #ifdef CONFIG_POWERSUSPEND
+    mt_cpufreq_power_suspend_handler.suspend = mt_cpufreq_power_suspend;
+    mt_cpufreq_power_suspend_handler.resume = mt_cpufreq_power_resume;
+    register_power_suspend(&mt_cpufreq_power_suspend_handler);
     #endif
 
     /************************************************
@@ -1671,7 +1670,7 @@ static int mt_cpufreq_pdrv_probe(struct platform_device *pdev)
     g_limited_max_freq = g_max_freq_by_ptp;
     g_limited_min_freq = DVFS_F4;
 
-    /* Check if max freq over 1.2GHz, When early suspend, limit max freq. */
+    /* Check if max freq over 1.2GHz, When power suspend, limit max freq. */
     if(g_max_freq_by_ptp > DVFS_F1)
     {
         mt_cpufreq_max_freq_overdrive = true;

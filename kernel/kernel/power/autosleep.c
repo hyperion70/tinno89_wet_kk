@@ -10,6 +10,10 @@
 #include <linux/mutex.h>
 #include <linux/pm_wakeup.h>
 
+#ifdef CONFIG_POWERSUSPEND
+#include <linux/powersuspend.h>
+#endif
+
 #include "power.h"
 
 #define _TAG_PM_M "[Ker_PM]"
@@ -154,9 +158,17 @@ int pm_autosleep_set_state(suspend_state_t state)
 		pm_log("pm_wakeup_autosleep_enable[true] queue_up_suspend_work");
 		pm_wakep_autosleep_enabled(true);
 		queue_up_suspend_work();
+#ifdef CONFIG_POWERSUSPEND
+		// Yank555.lu : add hook to handle powersuspend tasks (sleep)
+		set_power_suspend_state_autosleep_hook(POWER_SUSPEND_ACTIVE);
+#endif
 	} else {
 		pm_log("pm_wakeup_autosleep_enable[false]");
 		pm_wakep_autosleep_enabled(false);
+#ifdef CONFIG_POWERSUSPEND
+		// Yank555.lu : add hook to handle powersuspend tasks (wakeup)
+		set_power_suspend_state_autosleep_hook(POWER_SUSPEND_INACTIVE);
+#endif
 	}
 
 	mutex_unlock(&autosleep_lock);

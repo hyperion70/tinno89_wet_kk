@@ -22,7 +22,7 @@
 #include <linux/input.h>
 #include <linux/workqueue.h>
 #include <linux/kobject.h>
-#include <linux/earlysuspend.h>
+#include <linux/powersuspend.h>
 #include <linux/platform_device.h>
 #include <asm/atomic.h>
 //#include <math.h>
@@ -122,9 +122,9 @@ struct ms5607_i2c_data {
     struct data_filter      fir;
 #endif 
 	
-    /*early suspend*/
-#if defined(CONFIG_HAS_EARLYSUSPEND)
-    struct early_suspend    early_drv;
+    /*power suspend*/
+#ifdef CONFIG_POWERSUSPEND)
+    struct power_suspend    power_drv;
 #endif     
 };
 /*----------------------------------------------------------------------------*/
@@ -136,7 +136,7 @@ static struct i2c_driver ms5607_i2c_driver = {
 	.probe      		= ms5607_i2c_probe,
 	.remove    			= ms5607_i2c_remove,
 //	.detect				= ms5607_i2c_detect,
-#if !defined(CONFIG_HAS_EARLYSUSPEND)    
+#ifndef CONFIG_POWERSUSPEND   
     .suspend            = ms5607_suspend,
     .resume             = ms5607_resume,
 #endif
@@ -1048,7 +1048,7 @@ static struct miscdevice ms5607_device = {
 	.fops = &ms5607_fops,
 };
 /*----------------------------------------------------------------------------*/
-#ifndef CONFIG_HAS_EARLYSUSPEND
+#ifndef CONFIG_POWERSUSPEND
 /*----------------------------------------------------------------------------*/
 static int ms5607_suspend(struct i2c_client *client, pm_message_t msg) 
 {
@@ -1105,11 +1105,11 @@ static int ms5607_resume(struct i2c_client *client)
 	return 0;
 }
 /*----------------------------------------------------------------------------*/
-#else /*CONFIG_HAS_EARLY_SUSPEND is defined*/
+#else /*#ifdef CONFIG_POWERSUSPEND*/
 /*----------------------------------------------------------------------------*/
-static void ms5607_early_suspend(struct early_suspend *h) 
+static void ms5607_power_suspend(struct power_suspend *h) 
 {
-	struct ms5607_i2c_data *obj = container_of(h, struct ms5607_i2c_data, early_drv);   
+	struct ms5607_i2c_data *obj = container_of(h, struct ms5607_i2c_data, power_drv);   
 //	int err;
 	BAR_FUN();    
 
@@ -1133,9 +1133,9 @@ static void ms5607_early_suspend(struct early_suspend *h)
 	MS5607_power(obj->hw, 0);
 }
 /*----------------------------------------------------------------------------*/
-static void ms5607_late_resume(struct early_suspend *h)
+static void ms5607_power_resume(struct power_suspend *h)
 {
-	struct ms5607_i2c_data *obj = container_of(h, struct ms5607_i2c_data, early_drv);         
+	struct ms5607_i2c_data *obj = container_of(h, struct ms5607_i2c_data, power_drv);         
 	int err;
 	BAR_FUN();
 
@@ -1154,7 +1154,7 @@ static void ms5607_late_resume(struct early_suspend *h)
 	atomic_set(&obj->suspend, 0);    
 }
 /*----------------------------------------------------------------------------*/
-#endif /*CONFIG_HAS_EARLYSUSPEND*/
+#endif /*#ifdef CONFIG_POWERSUSPEND*/
 /*----------------------------------------------------------------------------*/
 /*
 static int ms5607_i2c_detect(struct i2c_client *client, int kind, struct i2c_board_info *info) 
@@ -1256,12 +1256,10 @@ static int ms5607_i2c_probe(struct i2c_client *client, const struct i2c_device_i
 	//	goto exit_kfree;
 	//}
 
-#ifdef CONFIG_HAS_EARLYSUSPEND
-	//obj->early_drv.level    = EARLY_SUSPEND_LEVEL_DISABLE_FB - 1,
-	obj->early_drv.level    = EARLY_SUSPEND_LEVEL_STOP_DRAWING - 2,
-	obj->early_drv.suspend  = ms5607_early_suspend,
-	obj->early_drv.resume   = ms5607_late_resume,    
-	register_early_suspend(&obj->early_drv);
+#ifdef CONFIG_POWERSUSPEND
+	obj->power_drv.suspend  = ms5607_power_suspend,
+	obj->power_drv.resume   = ms5607_power_resume,    
+	register_power_suspend(&obj->power_drv);
 #endif 
 
 	BAR_LOG("%s: OK\n", __func__); 

@@ -324,8 +324,8 @@ static int __ref _cpu_down(unsigned int cpu, int tasks_frozen)
 	 *
 	 * Wait for the stop thread to go away.
 	 */
-	while (!idle_cpu(cpu))
-		cpu_relax();
+	while (!idle_cpu_relaxed(cpu))
+		cpu_read_relax();
 
 #ifdef CONFIG_MT_LOAD_BALANCE_PROFILER
 	mt_lbprof_update_state(cpu, MT_LBPROF_HOTPLUG_STATE);

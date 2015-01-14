@@ -1033,14 +1033,14 @@ void shrink_mtkpasr_all(void)
 	}
 }
 
-/* Shrink mtkpasr memory from late resume */
+/* Shrink mtkpasr memory from power resume */
 void shrink_mtkpasr_late_resume(void)
 {
 	unsigned long start_bank;
 	unsigned long shrink_banks;
 	struct list_head *mafl = NULL;
 
-	/* Check whether it is an early resume (No MTKPASR is triggered) */
+	/* Check whether it is an power resume (No MTKPASR is triggered) */
 	if (!is_mtkpasr_triggered()) {
 		return;
 	}

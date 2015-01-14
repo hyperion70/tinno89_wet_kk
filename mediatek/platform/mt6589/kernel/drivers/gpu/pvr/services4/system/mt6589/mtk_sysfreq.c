@@ -53,7 +53,7 @@ void MtkInitSetFreqTbl(unsigned int tbltype)
 
 PVRSRV_ERROR MTKSetFreqInfo(unsigned int freq, unsigned int tbltype)
 {
-    printk(" freq= %d", freq);
+    //printk(" freq= %d", freq);
 
 #if defined(MTK_FREQ_OD_INIT)
     if (freq > GPU_DVFS_F5)

@@ -851,4 +851,11 @@ config TOUCHSCREEN_TPS6507X
 	  To compile this driver as a module, choose M here: the
 	  module will be called tps6507x_ts.
 
+config TOUCHSCREEN_TOUCH2WAKE
+	tristate "Touch2Wake controls for touchscreens"
+	default y
+	help
+	  Say Y here to enable support for Sweep2Wake and
+	  DoubleTap2Wake
+
 endif

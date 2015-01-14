@@ -7,7 +7,7 @@
 #include <linux/device.h>
 #include <linux/platform_device.h>
 #include <linux/dma-mapping.h>
-#include <linux/earlysuspend.h>
+#include <linux/powersuspend.h>
 #include <linux/kthread.h>
 #include <linux/rtpm_prio.h>
 #include <linux/vmalloc.h>
@@ -157,8 +157,8 @@ struct fb_overlay_layer fb_layer_context;
 */
 //DECLARE_MUTEX(sem_flipping);
 DEFINE_SEMAPHORE(sem_flipping);
-//DECLARE_MUTEX(sem_early_suspend);
-DEFINE_SEMAPHORE(sem_early_suspend);
+//DECLARE_MUTEX(sem_power_suspend);
+DEFINE_SEMAPHORE(sem_power_suspend);
 DEFINE_SEMAPHORE(sem_overlay_buffer);
 
 extern OVL_CONFIG_STRUCT cached_layer_config[DDP_OVL_LAYER_MUN];
@@ -180,9 +180,9 @@ extern wait_queue_head_t disp_done_wq;
 
 DEFINE_MUTEX(ScreenCaptureMutex);
 
-BOOL is_early_suspended = FALSE;
+BOOL is_power_suspended = FALSE;
 static int sem_flipping_cnt = 1;
-static int sem_early_suspend_cnt = 1;
+static int sem_power_suspend_cnt = 1;
 static int sem_overlay_buffer_cnt = 1;
 static int vsync_cnt = 0;
 
@@ -236,19 +236,19 @@ void mtkfb_pan_disp_test(void)
     }
 	sem_flipping_cnt--;
 	DISP_LOG_PRINT(ANDROID_LOG_WARN, "MTKFB", "wait sem_flipping\n");
-	if (down_interruptible(&sem_early_suspend)) {
+	if (down_interruptible(&sem_power_suspend)) {
         printk("[fb driver] can't get semaphore:%d\n", __LINE__);
 		sem_flipping_cnt++;
 		up(&sem_flipping);
         return;
     }
-	sem_early_suspend_cnt--;
+	sem_power_suspend_cnt--;
 
-	DISP_LOG_PRINT(ANDROID_LOG_WARN, "MTKFB", "wait sem_early_suspend\n");
+	DISP_LOG_PRINT(ANDROID_LOG_WARN, "MTKFB", "wait sem_power_suspend\n");
 	if (down_interruptible(&sem_overlay_buffer)) {
      	printk("[fb driver] can't get semaphore,%d\n", __LINE__);
-		sem_early_suspend_cnt++;
-		up(&sem_early_suspend);
+		sem_power_suspend_cnt++;
+		up(&sem_power_suspend);
 
 		sem_flipping_cnt++;
 		up(&sem_flipping);
@@ -256,22 +256,22 @@ void mtkfb_pan_disp_test(void)
     }
 	sem_overlay_buffer_cnt--;
 	DISP_LOG_PRINT(ANDROID_LOG_WARN, "MTKFB", "wait sem_overlay_buffer\n");
-	if (is_early_suspended) goto end;
+	if (is_power_suspended) goto end;
 
 	DISP_CHECK_RET(DISP_UpdateScreen(0, 0, fb_xres_update, fb_yres_update));
 end:
 	sem_overlay_buffer_cnt++;
-	sem_early_suspend_cnt++;
+	sem_power_suspend_cnt++;
 	sem_flipping_cnt++;
     up(&sem_overlay_buffer);
-    up(&sem_early_suspend);
+    up(&sem_power_suspend);
 	up(&sem_flipping);
 }
 
 void mtkfb_show_sem_cnt(void)
 {
-	printk("[FB driver: sem cnt = %d, %d, %d. fps = %d, vsync_cnt = %d\n", sem_overlay_buffer_cnt, sem_early_suspend_cnt, sem_flipping_cnt, lcd_fps, vsync_cnt);
-	printk("[FB driver: sem cnt = %d, %d, %d\n", sem_overlay_buffer.count, sem_early_suspend.count, sem_flipping.count);
+	printk("[FB driver: sem cnt = %d, %d, %d. fps = %d, vsync_cnt = %d\n", sem_overlay_buffer_cnt, sem_power_suspend_cnt, sem_flipping_cnt, lcd_fps, vsync_cnt);
+	printk("[FB driver: sem cnt = %d, %d, %d\n", sem_overlay_buffer.count, sem_power_suspend.count, sem_flipping.count);
 }
 
 void mtkfb_hang_test(bool en)
@@ -330,9 +330,9 @@ static int esd_recovery_kthread(void *data)
 
         if(!esd_kthread_pause)
         {
-            if(is_early_suspended)
+            if(is_power_suspended)
             {
-                MTKFB_LOG("is_early_suspended in esd_recovery_kthread()\n");
+                MTKFB_LOG("is_power_suspended in esd_recovery_kthread()\n");
                 continue;
             }
             ///execute ESD check and recover flow
@@ -422,12 +422,12 @@ void mtkfb_m4u_switch(bool enable)
         return;
     }
 	sem_flipping_cnt--;
-	if (down_interruptible(&sem_early_suspend)) {
+	if (down_interruptible(&sem_power_suspend)) {
         MTKFB_LOG("[FB Driver] can't get semaphore in mtkfb_m4u_switch()\n");
         return;
     }
-	sem_early_suspend_cnt--;
-    if (is_early_suspended) return;
+	sem_power_suspend_cnt--;
+    if (is_power_suspended) return;
 
 	DISP_WaitForLCDNotBusy();
 	DISP_M4U_On(enable);
@@ -440,8 +440,8 @@ void mtkfb_m4u_switch(bool enable)
 		mtkfb_enable_m4u = TRUE;
 	}
     sem_flipping_cnt++;
-	sem_early_suspend_cnt++;
-	up(&sem_early_suspend);
+	sem_power_suspend_cnt++;
+	up(&sem_power_suspend);
 	up(&sem_flipping);
 #else
     MTKFB_LOG("[FB driver] call mtkfb_m4u_switch() but this function not implement for MTKFB not use M4U\n");
@@ -454,7 +454,7 @@ void mtkfb_m4u_dump(void)
 #if defined(MTK_M4U_SUPPORT)
 	MTKFB_FUNC();
 
-    if (is_early_suspended) return;
+    if (is_power_suspended) return;
 
 	DISP_DumpM4U();
 #else
@@ -725,12 +725,12 @@ int external_display_trigger_update(void)
 static int mtkfb_update_screen(struct fb_info *info)
 {
 	MTKFB_FUNC();
-    if (down_interruptible(&sem_early_suspend)) {
+    if (down_interruptible(&sem_power_suspend)) {
         printk("[FB Driver] can't get semaphore in mtkfb_update_screen()\n");
         return -ERESTARTSYS;
     }
-	sem_early_suspend_cnt--;
-    if (is_early_suspended) goto End;
+	sem_power_suspend_cnt--;
+    if (is_power_suspended) goto End;
 #ifndef MT65XX_NEW_DISP
 	if(DISP_IsInOverlayMode())
 	{
@@ -751,8 +751,8 @@ static int mtkfb_update_screen(struct fb_info *info)
 	}
 
 End:
-	sem_early_suspend_cnt++;
-    up(&sem_early_suspend);
+	sem_power_suspend_cnt++;
+    up(&sem_power_suspend);
     return 0;
 }
 static unsigned int BL_level = 0;
@@ -766,15 +766,15 @@ int mtkfb_set_backlight_level(unsigned int level)
         return -ERESTARTSYS;
     }
 	sem_flipping_cnt--;
-	if (down_interruptible(&sem_early_suspend)) {
+	if (down_interruptible(&sem_power_suspend)) {
         printk("[FB Driver] can't get semaphore:%d\n", __LINE__);
 		sem_flipping_cnt++;
 		up(&sem_flipping);
         return -ERESTARTSYS;
     }
 
-	sem_early_suspend_cnt--;
-    if (is_early_suspended){
+	sem_power_suspend_cnt--;
+    if (is_power_suspended){
 		BL_level = level;
 		BL_set_level_resume = TRUE;
 		printk("[FB driver] set backlight level but FB has been suspended\n");
@@ -784,8 +784,8 @@ int mtkfb_set_backlight_level(unsigned int level)
 	BL_set_level_resume = FALSE;
 End:
 	sem_flipping_cnt++;
-	sem_early_suspend_cnt++;
-    up(&sem_early_suspend);
+	sem_power_suspend_cnt++;
+    up(&sem_power_suspend);
 	up(&sem_flipping);
     return 0;
 }
@@ -799,21 +799,21 @@ int mtkfb_set_backlight_mode(unsigned int mode)
         return -ERESTARTSYS;
     }
 	sem_flipping_cnt--;
-	if (down_interruptible(&sem_early_suspend)) {
+	if (down_interruptible(&sem_power_suspend)) {
         printk("[FB Driver] can't get semaphore:%d\n", __LINE__);
 		sem_flipping_cnt++;
 		up(&sem_flipping);
         return -ERESTARTSYS;
     }
 
-	sem_early_suspend_cnt--;
-    if (is_early_suspended) goto End;
+	sem_power_suspend_cnt--;
+    if (is_power_suspended) goto End;
 
 	DISP_SetBacklight_mode(mode);
 End:
 	sem_flipping_cnt++;
-	sem_early_suspend_cnt++;
-    up(&sem_early_suspend);
+	sem_power_suspend_cnt++;
+    up(&sem_power_suspend);
 	up(&sem_flipping);
     return 0;
 }
@@ -828,19 +828,19 @@ int mtkfb_set_backlight_pwm(int div)
         return -ERESTARTSYS;
     }
 	sem_flipping_cnt--;
-	if (down_interruptible(&sem_early_suspend)) {
+	if (down_interruptible(&sem_power_suspend)) {
         printk("[FB Driver] can't get semaphore:%d\n", __LINE__);
 		sem_flipping_cnt++;
 		up(&sem_flipping);
         return -ERESTARTSYS;
     }
-	sem_early_suspend_cnt--;
-    if (is_early_suspended) goto End;
+	sem_power_suspend_cnt--;
+    if (is_power_suspended) goto End;
 	DISP_SetPWM(div);
 End:
 	sem_flipping_cnt++;
-	sem_early_suspend_cnt++;
-    up(&sem_early_suspend);
+	sem_power_suspend_cnt++;
+    up(&sem_power_suspend);
 	up(&sem_flipping);
     return 0;
 }
@@ -855,7 +855,7 @@ EXPORT_SYMBOL(mtkfb_get_backlight_pwm);
 
 void mtkfb_waitVsync(void)
 {
-	if(is_early_suspended){
+	if(is_power_suspended){
 		printk("[MTKFB_VSYNC]:mtkfb has suspend, return directly\n");
 		msleep(20);
 		return;
@@ -883,14 +883,14 @@ void mtkfb_switch_normal_to_factory(void)
         return;
     }
 	sem_flipping_cnt--;
-	if (down_interruptible(&sem_early_suspend)) {
+	if (down_interruptible(&sem_power_suspend)) {
         printk("[FB Driver] can't get semaphore:%d\n", __LINE__);
 		sem_flipping_cnt++;
         up(&sem_flipping);
         return;
     }
-	sem_early_suspend_cnt--;
-    if (is_early_suspended) {
+	sem_power_suspend_cnt--;
+    if (is_power_suspended) {
         goto EXIT;
     }
 
@@ -902,9 +902,9 @@ void mtkfb_switch_normal_to_factory(void)
     }
 
 EXIT:
-	sem_early_suspend_cnt++;
+	sem_power_suspend_cnt++;
 	sem_flipping_cnt++;
-    up(&sem_early_suspend);
+    up(&sem_power_suspend);
     up(&sem_flipping);
 }
 
@@ -917,15 +917,15 @@ void mtkfb_switch_factory_to_normal(void)
         return;
     }
 	sem_flipping_cnt--;
-	if (down_interruptible(&sem_early_suspend)) {
+	if (down_interruptible(&sem_power_suspend)) {
         printk("[FB Driver] can't get semaphore in mtkfb_switch_factory_to_normal()\n");
 		sem_flipping_cnt++;
         up(&sem_flipping);
         return;
     }
 
-	sem_early_suspend_cnt--;
-    if (is_early_suspended) {
+	sem_power_suspend_cnt--;
+    if (is_power_suspended) {
         goto EXIT;
     }
 
@@ -938,9 +938,9 @@ void mtkfb_switch_factory_to_normal(void)
     }
 
 EXIT:
-	sem_early_suspend_cnt++;
+	sem_power_suspend_cnt++;
 	sem_flipping_cnt++;
-    up(&sem_early_suspend);
+    up(&sem_power_suspend);
     up(&sem_flipping);
     if (need_set_par)
     {
@@ -1558,10 +1558,10 @@ static int mtkfb_set_overlay_layer(struct fb_info *info, struct fb_overlay_layer
     MSG_FUNC_ENTER();
     MMProfileLogEx(MTKFB_MMP_Events.SetOverlayLayer, MMProfileFlagStart, (id<<16)|enable, (unsigned int)layerInfo->src_phy_addr);
 
-    /** LCD registers can't be R/W when its clock is gated in early suspend
+    /** LCD registers can't be R/W when its clock is gated in power suspend
         mode; power on/off LCD to modify register values before/after func.
     */
-    if (is_early_suspended) {
+    if (is_power_suspended) {
         DISP_CHECK_RET(DISP_LCDPowerEnable(TRUE));
     }
     
@@ -1948,7 +1948,7 @@ LeaveOverlayMode:
         }
     }
 
-    if (is_early_suspended) {
+    if (is_power_suspended) {
         DISP_CHECK_RET(DISP_LCDPowerEnable(FALSE));
     }
 
@@ -1997,15 +1997,15 @@ static int mtkfb_get_video_layer(struct fb_info *info, struct fb_overlay_layer *
 		return -1;
 	}
 
-	if (down_interruptible(&sem_early_suspend)) {
+	if (down_interruptible(&sem_power_suspend)) {
         printk("[FB Driver] can't get semaphore in mtkfb_capture_framebuffer()\n");
         return -ERESTARTSYS;
     }
 
-	sem_early_suspend_cnt--;
-    if (is_early_suspended) {
-		  sem_early_suspend_cnt++;
-          up(&sem_early_suspend);
+	sem_power_suspend_cnt--;
+    if (is_power_suspended) {
+		  sem_power_suspend_cnt++;
+          up(&sem_power_suspend);
           return -1;
     }
 
@@ -2025,8 +2025,8 @@ static int mtkfb_get_video_layer(struct fb_info *info, struct fb_overlay_layer *
 			break;
 		}
 	}
-	sem_early_suspend_cnt++;
-    up(&sem_early_suspend);
+	sem_power_suspend_cnt++;
+    up(&sem_power_suspend);
 
     MSG_FUNC_LEAVE();
 
@@ -2044,25 +2044,25 @@ static int mtkfb_capture_videobuffer(struct fb_info *info, unsigned int pvbuf)
 		return -1;
 	}
 
-    if (down_interruptible(&sem_early_suspend)) {
+    if (down_interruptible(&sem_power_suspend)) {
         printk("[FB Driver] can't get semaphore in mtkfb_capture_framebuffer()\n");
         return -ERESTARTSYS;
     }
 
-	sem_early_suspend_cnt--;
-    /** LCD registers can't be R/W when its clock is gated in early suspend
+	sem_power_suspend_cnt--;
+    /** LCD registers can't be R/W when its clock is gated in power suspend
         mode; power on/off LCD to modify register values before/after func.
     */
-    if (is_early_suspended) {
-		  sem_early_suspend_cnt++;
-          up(&sem_early_suspend);
+    if (is_power_suspended) {
+		  sem_power_suspend_cnt++;
+          up(&sem_power_suspend);
           return -1;
     }
 
     DISP_Capture_Videobuffer(pvbuf, info->var.bits_per_pixel, video_rotation);
 
-	sem_early_suspend_cnt++;
-    up(&sem_early_suspend);
+	sem_power_suspend_cnt++;
+    up(&sem_power_suspend);
 
     MSG_FUNC_LEAVE();
 
@@ -2092,10 +2092,10 @@ static int mtkfb_capture_framebuffer(struct fb_info *info, unsigned int pvbuf)
 	sem_flipping_cnt--;
     mutex_lock(&ScreenCaptureMutex);
 
-    /** LCD registers can't be R/W when its clock is gated in early suspend
+    /** LCD registers can't be R/W when its clock is gated in power suspend
         mode; power on/off LCD to modify register values before/after func.
     */
-    if (is_early_suspended) {
+    if (is_power_suspended) {
 #ifndef MT65XX_NEW_DISP
         DISP_CHECK_RET(DISP_LCDPowerEnable(TRUE));
 #else
@@ -2175,12 +2175,12 @@ static int mtkfb_capture_framebuffer(struct fb_info *info, unsigned int pvbuf)
         iounmap((void *)fbv);
     }
     else
-        DISP_Capture_Framebuffer(pvbuf, info->var.bits_per_pixel, is_early_suspended);
+        DISP_Capture_Framebuffer(pvbuf, info->var.bits_per_pixel, is_power_suspended);
 #endif
 
 
 EXIT:
-    if (is_early_suspended) {
+    if (is_power_suspended) {
 #ifndef MT65XX_NEW_DISP
         DISP_CHECK_RET(DISP_LCDPowerEnable(FALSE));
 #else
@@ -2221,13 +2221,13 @@ static int mtkfb_set_s3d_ftm(struct fb_info *info, unsigned int mode)
     }
 	sem_flipping_cnt--;
 
-	if (down_interruptible(&sem_early_suspend)) {
+	if (down_interruptible(&sem_power_suspend)) {
         MTKFB_LOG("[FB Driver] can't get semaphore in mtkfb_set_backlight_pwm()\n");
 		sem_flipping_cnt++;
 		up(&sem_flipping);
         return -ERESTARTSYS;
     }
-	sem_early_suspend_cnt--;
+	sem_power_suspend_cnt--;
 	//memcpy(&framebuffer[0], &portrait_1080x960[0], sizeof(portrait_1080x960));
 
 	if (mode)
@@ -2259,9 +2259,9 @@ static int mtkfb_set_s3d_ftm(struct fb_info *info, unsigned int mode)
 		if (ret != 0)
 			PRNERR("failed to mtkfb_set_par\n");
 	}
-	sem_early_suspend_cnt++;
+	sem_power_suspend_cnt++;
 	sem_flipping_cnt++;
-    up(&sem_early_suspend);
+    up(&sem_power_suspend);
 	up(&sem_flipping);
 
     vfree((void *)framebuffer);
@@ -2318,19 +2318,19 @@ static int mtkfb_ioctl(struct file *file, struct fb_info *info, unsigned int cmd
 	case MTKFB_POWEROFF:
    	{
 		MTKFB_FUNC();
-		if(is_early_suspended) return r;
-    	if (down_interruptible(&sem_early_suspend))
+		if(is_power_suspended) return r;
+    	if (down_interruptible(&sem_power_suspend))
 		{
-        	printk("[FB Driver] can't get semaphore in mtkfb_early_suspend()\n");
+        	printk("[FB Driver] can't get semaphore in mtkfb_power_suspend()\n");
         	return -ERESTARTSYS;
     	}
 
-    	is_early_suspended = TRUE;
+    	is_power_suspended = TRUE;
 
 		DISP_CHECK_RET(DISP_PanelEnable(FALSE));
  		DISP_CHECK_RET(DISP_PowerEnable(FALSE));
 
-    	up(&sem_early_suspend);
+    	up(&sem_power_suspend);
 
 		return r;
 	}
@@ -2355,19 +2355,19 @@ static int mtkfb_ioctl(struct file *file, struct fb_info *info, unsigned int cmd
 	case MTKFB_POWERON:
    	{
 		MTKFB_FUNC();
-//		if(!is_early_suspended) return r;
-		if (down_interruptible(&sem_early_suspend))
+//		if(!is_power_suspended) return r;
+		if (down_interruptible(&sem_power_suspend))
 		{
-        	printk("[FB Driver] can't get semaphore in mtkfb_late_resume()\n");
+        	printk("[FB Driver] can't get semaphore in mtkfb_power_resume()\n");
         	return -ERESTARTSYS;
     	}
 
     	DISP_CHECK_RET(DISP_PowerEnable(TRUE));
     	DISP_CHECK_RET(DISP_PanelEnable(TRUE));
 
-		is_early_suspended = FALSE;
+		is_power_suspended = FALSE;
 
-    	up(&sem_early_suspend);
+    	up(&sem_power_suspend);
 
 		return r;
 	}
@@ -2375,7 +2375,7 @@ static int mtkfb_ioctl(struct file *file, struct fb_info *info, unsigned int cmd
     {
         unsigned long power_state;
 
-        if(is_early_suspended == TRUE)
+        if(is_power_suspended == TRUE)
             power_state = 0;
         else
             power_state = 1;
@@ -2392,15 +2392,15 @@ static int mtkfb_ioctl(struct file *file, struct fb_info *info, unsigned int cmd
     {
         MTKFB_LOG("[%s] MTKFB_CONFIG_IMMEDIATE_UPDATE, enable = %lu\n",
             __func__, arg);
-		if (down_interruptible(&sem_early_suspend)) {
+		if (down_interruptible(&sem_power_suspend)) {
         		MTKFB_LOG("[mtkfb_ioctl] can't get semaphore:%d\n", __LINE__);
         		return -ERESTARTSYS;
     	}
-		sem_early_suspend_cnt--;
+		sem_power_suspend_cnt--;
         DISP_WaitForLCDNotBusy();
         ret = DISP_ConfigImmediateUpdate((BOOL)arg);
-		sem_early_suspend_cnt++;
-		up(&sem_early_suspend);
+		sem_power_suspend_cnt++;
+		up(&sem_power_suspend);
         return (r);
     }
 
@@ -2571,9 +2571,9 @@ static int mtkfb_ioctl(struct file *file, struct fb_info *info, unsigned int cmd
 					//aee_kernel_warning("MTKFB","layerId(%d) HWC set the old buffer(%d)!\n", layerInfo[i].layer_id, layerInfo[i].next_buff_idx);
 					continue;
 				}
-				if(is_early_suspended)
+				if(is_power_suspended)
 				{
-					MTKFB_ERR("in early suspend layer(0x%x),idx(%d)!\n", layerId<<16|layerInfo[i].layer_enable, layerInfo[i].next_buff_idx);
+					MTKFB_ERR("in power suspend layer(0x%x),idx(%d)!\n", layerId<<16|layerInfo[i].layer_enable, layerInfo[i].next_buff_idx);
 					//mtkfb_release_layer_fence(layerInfo[i].layer_id);
 				}
     			mtkfb_set_overlay_layer(info, &layerInfo[i]);
@@ -2687,13 +2687,13 @@ static int mtkfb_ioctl(struct file *file, struct fb_info *info, unsigned int cmd
    	 		}
 			sem_flipping_cnt--;
 
-			if (down_interruptible(&sem_early_suspend)) {
+			if (down_interruptible(&sem_power_suspend)) {
         		printk("[mtkfb_ioctl] can't get semaphore:%d\n",__LINE__);
 				sem_flipping_cnt++;
 				up(&sem_flipping);
         		return -ERESTARTSYS;
     		}
-			sem_early_suspend_cnt--;
+			sem_power_suspend_cnt--;
             DISP_AllocOverlayMva(overlay_buffer.src_vir_addr, &overlay_mva, overlay_buffer.size);
 			printk("[mtkfb_ioctl]MTKFB_REGISTER_OVERLAYBUFFER,allocated mva = 0x%x\n", overlay_mva);
 			n->src_mva = overlay_mva;
@@ -2717,8 +2717,8 @@ static int mtkfb_ioctl(struct file *file, struct fb_info *info, unsigned int cmd
 				printk("\n");
 			}
 			sem_flipping_cnt++;
-			sem_early_suspend_cnt++;
- 		   	up(&sem_early_suspend);
+			sem_power_suspend_cnt++;
+ 		   	up(&sem_power_suspend);
 			up(&sem_flipping);
 
 		}
@@ -2753,18 +2753,18 @@ static int mtkfb_ioctl(struct file *file, struct fb_info *info, unsigned int cmd
    	 		}
 			sem_flipping_cnt--;
 
-			if (down_interruptible(&sem_early_suspend)) {
+			if (down_interruptible(&sem_power_suspend)) {
         		printk("[mtkfb_ioctl] can't get semaphore:%d\n", __LINE__);
 				sem_flipping_cnt++;
 				up(&sem_flipping);
         		return -ERESTARTSYS;
     		}
-			sem_early_suspend_cnt--;
+			sem_power_suspend_cnt--;
 			if (down_interruptible(&sem_overlay_buffer)) {
         		printk("[mtkfb_ioctl] can't get semaphore,%d\n", __LINE__);
 				sem_flipping_cnt++;
-				sem_early_suspend_cnt++;
-			   	up(&sem_early_suspend);
+				sem_power_suspend_cnt++;
+			   	up(&sem_power_suspend);
 				up(&sem_flipping);
         		return -ERESTARTSYS;
     		}
@@ -2774,10 +2774,10 @@ static int mtkfb_ioctl(struct file *file, struct fb_info *info, unsigned int cmd
 			n = c->next;
 			if(n == NULL){
 				sem_flipping_cnt++;
-				sem_early_suspend_cnt++;
+				sem_power_suspend_cnt++;
 				sem_overlay_buffer_cnt++;
 				up(&sem_overlay_buffer);
-		   		up(&sem_early_suspend);
+		   		up(&sem_power_suspend);
 				up(&sem_flipping);
 				return ret;
 			}
@@ -2799,10 +2799,10 @@ static int mtkfb_ioctl(struct file *file, struct fb_info *info, unsigned int cmd
 					}
 					printk("[FB driver] ERROR: Can't find matched VA in buffer list\n");
 					sem_flipping_cnt++;
-					sem_early_suspend_cnt++;
+					sem_power_suspend_cnt++;
 					sem_overlay_buffer_cnt++;
 					up(&sem_overlay_buffer);
-		   			up(&sem_early_suspend);
+		   			up(&sem_power_suspend);
 					up(&sem_flipping);
 					return ret;
 				}
@@ -2838,10 +2838,10 @@ static int mtkfb_ioctl(struct file *file, struct fb_info *info, unsigned int cmd
 				}
 			}
 			sem_overlay_buffer_cnt++;
-			sem_early_suspend_cnt++;
+			sem_power_suspend_cnt++;
 			sem_flipping_cnt++;
 			up(&sem_overlay_buffer);
-		   	up(&sem_early_suspend);
+		   	up(&sem_power_suspend);
 			up(&sem_flipping);
 
 		}
@@ -3037,7 +3037,7 @@ static int mtkfb_ioctl(struct file *file, struct fb_info *info, unsigned int cmd
 #if 0  /////only mt6573 HW limitation need do this
         static int bootanimation_cnt = 0;
 		if(bootanimation_cnt > 1)return r;
-		if (down_interruptible(&sem_early_suspend))
+		if (down_interruptible(&sem_power_suspend))
 		{
         	MTKFB_LOG("[FB Driver] can't get semaphore in mtkfb_bootanimation()\n");
         	return -ERESTARTSYS;
@@ -3046,7 +3046,7 @@ static int mtkfb_ioctl(struct file *file, struct fb_info *info, unsigned int cmd
 		DISP_WaitForLCDNotBusy();
 		DISP_CHECK_RET(DISP_ChangeLCDWriteCycle());
 		bootanimation_cnt++;
-    	up(&sem_early_suspend);
+    	up(&sem_power_suspend);
 #endif
 		return r;
 
@@ -3061,7 +3061,7 @@ static int mtkfb_ioctl(struct file *file, struct fb_info *info, unsigned int cmd
 
 	case MTKFB_VSYNC:
 	{
-		if(is_early_suspended){
+		if(is_power_suspended){
 			printk("[MTKFB_VSYNC]:mtkfb has suspend, return directly\n");
 			msleep(20);
     			return (r);
@@ -3238,7 +3238,7 @@ unsigned int mtkfb_fm_auto_test()
 
 	msleep(100);
 
-    if (down_interruptible(&sem_early_suspend)) {
+    if (down_interruptible(&sem_power_suspend)) {
         printk("[FB Driver] can't get semaphore in mtkfb_fm_auto_test()\n");
         return result;
     }
@@ -3246,12 +3246,12 @@ unsigned int mtkfb_fm_auto_test()
     // Wait for disp finished.
     if (wait_event_interruptible_timeout(disp_done_wq, !disp_running, HZ/10) == 0)
     {
-        printk("[FB Driver] Wait disp finished timeout in early_suspend\n");
+        printk("[FB Driver] Wait disp finished timeout in power_suspend\n");
     }
 
 	result = DISP_AutoTest();
 	
-	up(&sem_early_suspend);
+	up(&sem_power_suspend);
 	if(result == 0){
 		printk("ATA LCM failed\n");
 	}else{
@@ -3992,7 +3992,7 @@ static int mtkfb_suspend(struct device *pdev, pm_message_t mesg)
 }
 bool mtkfb_is_suspend(void)
 {
-    return is_early_suspended;
+    return is_power_suspended;
 }
 EXPORT_SYMBOL(mtkfb_is_suspend);
 
@@ -4005,18 +4005,18 @@ static void mtkfb_shutdown(struct device *pdev)
     else
         msleep(2*100000/lcd_fps); // Delay 2 frames.
 
-	if(is_early_suspended){
+	if(is_power_suspended){
 		MTKFB_LOG("mtkfb has been power off\n");
 		return;
 	}
 
-    if (down_interruptible(&sem_early_suspend)) {
+    if (down_interruptible(&sem_power_suspend)) {
         printk("[FB Driver] can't get semaphore in mtkfb_shutdown()\n");
         return;
     }
-	sem_early_suspend_cnt--;
+	sem_power_suspend_cnt--;
 
-	is_early_suspended = TRUE;
+	is_power_suspended = TRUE;
 	DISP_PrepareSuspend();
     // Wait for disp finished.
     if (wait_event_interruptible_timeout(disp_done_wq, !disp_running, HZ/10) == 0)
@@ -4030,8 +4030,8 @@ static void mtkfb_shutdown(struct device *pdev)
 	printk("clock off ddp clock in mtkfbshutdown\n");
 	disp_path_clock_off("mtkfb");
 
-	sem_early_suspend_cnt++;
-    up(&sem_early_suspend);
+	sem_power_suspend_cnt++;
+    up(&sem_power_suspend);
 
     MTKFB_LOG("[FB Driver] leave mtkfb_shutdown\n");
 }
@@ -4058,15 +4058,15 @@ void mtkfb_clear_lcm(void)
 }
 
 
-#ifdef CONFIG_HAS_EARLYSUSPEND
-static void mtkfb_early_suspend(struct early_suspend *h)
+#ifdef CONFIG_POWERSUSPEND
+static void mtkfb_power_suspend(struct power_suspend *h)
 {
 //    struct mtkfb_device  *fbdev = (struct mtkfb_device *)mtkfb_fbi->par;
 //    UINT32 fbVirAddr = (UINT32)fbdev->fb_va_base + mtkfb_fbi->var.yoffset * mtkfb_fbi->fix.line_length;
 
     MSG_FUNC_ENTER();
 
-    printk("[FB Driver] enter early_suspend\n");
+    printk("[FB Driver] enter power_suspend\n");
     mutex_lock(&ScreenCaptureMutex);
 
     mt65xx_leds_brightness_set(MT65XX_LED_TYPE_LCD, LED_OFF);
@@ -4074,19 +4074,19 @@ static void mtkfb_early_suspend(struct early_suspend *h)
         msleep(30);
     else
         msleep(2*100000/lcd_fps); // Delay 2 frames.
-    if (down_interruptible(&sem_early_suspend)) {
-        printk("[FB Driver] can't get semaphore in mtkfb_early_suspend()\n");
+    if (down_interruptible(&sem_power_suspend)) {
+        printk("[FB Driver] can't get semaphore in mtkfb_power_suspend()\n");
         mutex_unlock(&ScreenCaptureMutex);
         return;
     }
 
-	sem_early_suspend_cnt--;
-    //MMProfileLogEx(MTKFB_MMP_Events.EarlySuspend, MMProfileFlagStart, 0, 0);
+	sem_power_suspend_cnt--;
+    //MMProfileLogEx(MTKFB_MMP_Events.powerSuspend, MMProfileFlagStart, 0, 0);
 
-	if(is_early_suspended){
-		is_early_suspended = TRUE;
-		sem_early_suspend_cnt++;
-		up(&sem_early_suspend);
+	if(is_power_suspended){
+		is_power_suspended = TRUE;
+		sem_power_suspend_cnt++;
+		up(&sem_power_suspend);
 		MTKFB_LOG("[FB driver] has been suspended\n");
         mutex_unlock(&ScreenCaptureMutex);
 		return;
@@ -4100,8 +4100,8 @@ static void mtkfb_early_suspend(struct early_suspend *h)
 	//DISP_CHECK_RET(DISP_UpdateScreen(0, 0, fb_xres_update, fb_yres_update));
 //	mtkfb_clear_lcm();
 
-    MMProfileLog(MTKFB_MMP_Events.EarlySuspend, MMProfileFlagStart);
-	is_early_suspended = TRUE;
+    MMProfileLog(MTKFB_MMP_Events.PowerSuspend, MMProfileFlagStart);
+	is_power_suspended = TRUE;
 
     if (!lcd_fps)
         msleep(30);
@@ -4112,7 +4112,7 @@ static void mtkfb_early_suspend(struct early_suspend *h)
     // Wait for disp finished.
     if (wait_event_interruptible_timeout(disp_done_wq, !disp_running, HZ/10) == 0)
     {
-        printk("[FB Driver] Wait disp finished timeout in early_suspend\n");
+        printk("[FB Driver] Wait disp finished timeout in power_suspend\n");
     }
 #if defined (MTK_FB_SYNC_SUPPORT)
     int i;
@@ -4132,7 +4132,7 @@ static void mtkfb_early_suspend(struct early_suspend *h)
 
 	DISP_CHECK_RET(DISP_PauseVsync(TRUE));
 	
-	// clear force on before early suspend
+	// clear force on before power suspend
         if(clk_is_force_on(MT_CG_DISP0_LARB2_SMI))
         {
             printk("[FB Driver] clear force on\n");
@@ -4146,12 +4146,12 @@ static void mtkfb_early_suspend(struct early_suspend *h)
 #if defined (MTK_FB_SYNC_SUPPORT)
 	//disp_sync_deinit();
 #endif
-    //MMProfileLogEx(MTKFB_MMP_Events.EarlySuspend, MMProfileFlagEnd, 0, 0);
-	sem_early_suspend_cnt++;
-    up(&sem_early_suspend);
+    //MMProfileLogEx(MTKFB_MMP_Events.PowerSuspend, MMProfileFlagEnd, 0, 0);
+	sem_power_suspend_cnt++;
+    up(&sem_power_suspend);
     mutex_unlock(&ScreenCaptureMutex);
-	aee_kernel_wdt_kick_Powkey_api("mtkfb_early_suspend",WDT_SETBY_Display); 
-    printk("[FB Driver] leave early_suspend\n");
+	aee_kernel_wdt_kick_Powkey_api("mtkfb_power_suspend",WDT_SETBY_Display); 
+    printk("[FB Driver] leave power_suspend\n");
     
     MSG_FUNC_LEAVE();
 }
@@ -4167,8 +4167,8 @@ static int mtkfb_resume(struct device *pdev)
     return 0;
 }
 
-#ifdef CONFIG_HAS_EARLYSUSPEND
-static void mtkfb_late_resume(struct early_suspend *h)
+#ifdef CONFIG_POWERSUSPEND
+static void mtkfb_power_resume(struct power_suspend *h)
 {
 //    struct mtkfb_device  *fbdev = (struct mtkfb_device *)mtkfb_fbi->par;
 
@@ -4176,17 +4176,17 @@ static void mtkfb_late_resume(struct early_suspend *h)
 
     MSG_FUNC_ENTER();
 
-    printk("[FB Driver] enter late_resume\n");
+    printk("[FB Driver] enter power_resume\n");
     mutex_lock(&ScreenCaptureMutex);
-    if (down_interruptible(&sem_early_suspend)) {
-        printk("[FB Driver] can't get semaphore in mtkfb_late_resume()\n");
+    if (down_interruptible(&sem_power_suspend)) {
+        printk("[FB Driver] can't get semaphore in mtkfb_power_resume()\n");
         mutex_unlock(&ScreenCaptureMutex);
         return;
     }
-	sem_early_suspend_cnt--;
-    //MMProfileLogEx(MTKFB_MMP_Events.EarlySuspend, MMProfileFlagStart, 0, 0);
+	sem_power_suspend_cnt--;
+    //MMProfileLogEx(MTKFB_MMP_Events.PowerSuspend, MMProfileFlagStart, 0, 0);
 
-    MMProfileLog(MTKFB_MMP_Events.EarlySuspend, MMProfileFlagEnd);
+    MMProfileLog(MTKFB_MMP_Events.PowerSuspend, MMProfileFlagEnd);
 #ifdef MT65XX_NEW_DISP
     if (is_ipoh_bootup)
     {
@@ -4205,7 +4205,7 @@ static void mtkfb_late_resume(struct early_suspend *h)
     DISP_CHECK_RET(DISP_PanelEnable(TRUE));
     printk("[FB LR] 4\n");
 
-	is_early_suspended = FALSE;
+	is_power_suspended = FALSE;
 
     if (is_ipoh_bootup)
     {
@@ -4216,9 +4216,9 @@ static void mtkfb_late_resume(struct early_suspend *h)
 	    mtkfb_clear_lcm();
 	  }
 
-    //MMProfileLogEx(MTKFB_MMP_Events.EarlySuspend, MMProfileFlagEnd, 0, 0);
-	sem_early_suspend_cnt++;
-    up(&sem_early_suspend);
+    //MMProfileLogEx(MTKFB_MMP_Events.PowerSuspend, MMProfileFlagEnd, 0, 0);
+	sem_power_suspend_cnt++;
+    up(&sem_power_suspend);
     mutex_unlock(&ScreenCaptureMutex);
 
 	if(BL_set_level_resume){
@@ -4226,8 +4226,8 @@ static void mtkfb_late_resume(struct early_suspend *h)
 		BL_set_level_resume = FALSE;
 		}
 
-    printk("[FB Driver] leave late_resume\n");
-	aee_kernel_wdt_kick_Powkey_api("mtkfb_late_resume",WDT_SETBY_Display); 
+    printk("[FB Driver] leave power_resume\n");
+	aee_kernel_wdt_kick_Powkey_api("mtkfb_power_resume",WDT_SETBY_Display); 
     MSG_FUNC_LEAVE();
 }
 #endif
@@ -4318,12 +4318,11 @@ static struct platform_driver mtkfb_driver =
     },
 };
 
-#ifdef CONFIG_HAS_EARLYSUSPEND
-static struct early_suspend mtkfb_early_suspend_handler =
+#ifdef CONFIG_POWERSUSPEND
+static struct power_suspend mtkfb_power_suspend_handler =
 {
-	.level = EARLY_SUSPEND_LEVEL_DISABLE_FB,
-	.suspend = mtkfb_early_suspend,
-	.resume = mtkfb_late_resume,
+	.suspend = mtkfb_power_suspend,
+	.resume = mtkfb_power_resume,
 };
 #endif
 
@@ -4356,8 +4355,8 @@ int __init mtkfb_init(void)
         goto exit;
     }
 
-#ifdef CONFIG_HAS_EARLYSUSPEND
-   	register_early_suspend(&mtkfb_early_suspend_handler);
+#ifdef CONFIG_POWERSUSPEND
+   	register_power_suspend(&mtkfb_power_suspend_handler);
 #endif
 
     DBG_Init();
@@ -4374,8 +4373,8 @@ static void __exit mtkfb_cleanup(void)
 
     platform_driver_unregister(&mtkfb_driver);
 
-#ifdef CONFIG_HAS_EARLYSUSPEND
-	unregister_early_suspend(&mtkfb_early_suspend_handler);
+#ifdef CONFIG_POWERSUSPEND
+	unregister_power_suspend(&mtkfb_power_suspend_handler);
 #endif
 
     kthread_stop(screen_update_task);
